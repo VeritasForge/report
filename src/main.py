@@ -31,66 +31,29 @@ def send_slack_notification(report_text: str):
         print(f"ERROR: An error occurred while sending report to Slack: {e}")
         raise e
 
-def generate_report_for_product(product_name: str, authors: str, product_url: str, url_date_range: str) -> str | None:
+def generate_report_for_product(product_name: str, authors: str, space_key: str, page_title: str) -> str | None:
     """
     Generates a weekly report for a single product using the Gemini CLI.
 
     Args:
         product_name: The name of the product.
         authors: A comma-separated list of author names.
-        product_url: The base Confluence URL for the product.
-        url_date_range: The formatted date range for the Confluence URL.
+        space_key: The Confluence space key (e.g., 'MAI').
+        page_title: The title of the Confluence page to search for.
 
     Returns:
         The generated report as a string, or None if an error occurred.
     """
-    full_url = f"{product_url}+{url_date_range}"
-    print(f"[{product_name}] Starting report generation for URL: {full_url}")
+    print(f"[{product_name}] Starting report generation for Space: {space_key}, Title: {page_title}")
 
     prompt_template = f"""
         atlassian mcp를 통해서 다음 작업을 수행해줘:
-        1. 다음 Confluence 페이지를 읽어줘:
-           - {product_name} 주간 보고: {full_url}
+        1. Confluence에서 다음 페이지를 검색해서 읽어줘:
+           - Space: {space_key}
+           - 제목: {page_title}
            - {authors} 들이 작성한 내용만 정리해줘.
         2. 페이지 내용에 언급된 모든 JIRA 티켓의 상세 내용도 읽어줘.
-        3. 읽은 모든 내용을 취합하고 요약해서, 아래의 형식에 맞춰 최종 보고서를 생성해줘.
-           각 섹션에 해당하는 내용을 분류해서 넣어줘.
-        4. 주의!! 본 문서는 대표에게 보고하는 내용이라 단순히 티켓을 나열하면 안되고 내용을 추상화해서 정리해줘야해!!
-
-        --- 형식 시작 ---
-        {product_name}
-
-        [진행 완료]
-        ...
-
-        [진행 중]
-        ...
-
-        [진행 대기]
-        ...
-        --- 형식 끝 ---
-
-        전에 위 형식으로 출력한 결과는 다음과 같았어. 결과를 출력할때 참고하면 좋을것 같아.
-        --- 이전 출력 예제 시작 ---
-        25.10.10 Fri
-        BE 팀 주간 업무 보고 드립니다.
-        [진행 완료]
-        - API 서버 로직 개선
-         - 대시보드의 응답 속도 개선
-        - API 버그 수정
-         - demo_api에서 ID에 특수문자가 포함될 경우 발생하던 오류 해결
-        [진행 중]
-        - AI 서비스 연동 개발
-         - AI 요청 및 응답 처리 기능 구현
-         - AI 예측 결과 수정 기능 구현
-        - 데이터 조회 성능 개선
-         - 데이터 조회 시, 여러 시간 범위를 한 번에 처리하도록 백엔드 로직 수정
-        - 리포트 기능 버그 수정
-         - History 리포트에서 특정 정보가 특정 시점의 데이터가 아닌 최신 정보로 잘못 표시되는 문제
-           해결 중
-        [진행 대기]
-        - 특이사항 없음
-        --- 이전 출력 예제 끝 ---
+        3. @GEMINI.md 지침에 따라 {product_name}에 대한 최종 보고서를 생성해줘.
 
         다른 설명이나 부가적인 말 없이, 최종적으로 생성된 보고서 텍스트만 출력해줘.
     """
@@ -151,7 +114,7 @@ def main():
     days_since_monday = today.weekday()
     last_monday = today - timedelta(days=days_since_monday, weeks=1)
     last_friday = last_monday + timedelta(days=4)
-    url_date_range = f"{last_monday.strftime('%Y-%m-%d')}+~+{last_friday.strftime('%Y-%m-%d')}"
+    date_range = f"{last_monday.strftime('%Y-%m-%d')} ~ {last_friday.strftime('%Y-%m-%d')}"
 
     # 2. Loop through each product and generate/send a report
     report_header = f"""
@@ -162,14 +125,15 @@ def main():
 
     for product in products:
         product_name = product.get("name")
-        product_url = product.get("url")
+        space_key = product.get("space_key")
 
-        if not product_name or not product_url:
+        if not (product_name and space_key):
             print(f"WARNING: Skipping invalid product entry in CONFLUENCE_PRODUCTS: {product}")
             continue
 
+        page_title = f"{product_name} {date_range}"
         print(f"\n--------------------\nProcessing: {product_name}\n--------------------")
-        report = generate_report_for_product(product_name, authors, product_url, url_date_range)
+        report = generate_report_for_product(product_name, authors, space_key, page_title)
         if report is None:
             print(f"ERROR: Failed to generate report for {product_name}. Skipping Slack notification.")
             return

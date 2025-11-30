@@ -38,13 +38,13 @@ Before running the script, you need to have the following installed:
     SLACK_CHANNEL="YOUR_SLACK_CHANNEL_ID"
 
     # Confluence Configuration
-    CONFLUENCE_PRODUCTS='[{"name": "Product A", "url": "https://your-confluence-space.atlassian.net/wiki/spaces/PROD/pages/12345"}, {"name": "Product B", "url": "https://your-confluence-space.atlassian.net/wiki/spaces/PROD/pages/67890"}]'
+    CONFLUENCE_PRODUCTS='[{"name": "VC", "space_key": "MAI"}, {"name": "ER", "space_key": "MAI"}]'
     CONFLUENCE_AUTHORS="John Doe,Jane Smith"
     ```
 
     *   `SLACK_TOKEN`: Your Slack bot token with `chat:write` permission.
     *   `SLACK_CHANNEL`: The ID of the Slack channel where the report will be sent.
-    *   `CONFLUENCE_PRODUCTS`: A JSON string containing a list of product objects. Each object must have a `name` and a `url` pointing to the Confluence page.
+    *   `CONFLUENCE_PRODUCTS`: A JSON string containing a list of product objects. Each object must have a `name` (product name, used in page title) and a `space_key` (Confluence space key).
     *   `CONFLUENCE_AUTHORS`: A comma-separated list of author names to filter the content from the Confluence page.
 
 ## Usage
