@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import subprocess
 import textwrap
 from datetime import date, timedelta, datetime
@@ -8,6 +9,15 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+def convert_markdown_links_to_slack(text: str) -> str:
+    """
+    Converts markdown links to Slack link format.
+
+    [TICKET-123](url) 설명 텍스트 -> <url|[TICKET-123] 설명 텍스트>
+    """
+    pattern = r'\[([^\]]+)\]\(([^)]+)\)\s*(.*)$'
+    return re.sub(pattern, r'<\2|[\1] \3>', text, flags=re.MULTILINE)
 
 def send_slack_notification(report_text: str):
     """
@@ -25,7 +35,8 @@ def send_slack_notification(report_text: str):
 
     try:
         client = WebClient(token=token)
-        client.chat_postMessage(channel=channel, text=report_text)
+        slack_formatted_text = convert_markdown_links_to_slack(report_text)
+        client.chat_postMessage(channel=channel, text=slack_formatted_text)
         print(f"Successfully sent a report to Slack channel '{channel}'.")
     except Exception as e:
         print(f"ERROR: An error occurred while sending report to Slack: {e}")
@@ -52,13 +63,14 @@ def generate_report_for_product(product_name: str, authors: str, space_key: str,
            - Space: {space_key}
            - 제목: {page_title}
            - {authors} 들이 작성한 내용만 정리해줘.
-        2. 페이지 내용에 언급된 모든 JIRA 티켓의 상세 내용도 읽어줘.
-        3. @GEMINI.md 지침에 따라 {product_name}에 대한 최종 보고서를 생성해줘.
+        2. @GEMINI.md 지침에 따라 {product_name}에 대한 최종 보고서를 생성해줘.
 
         다른 설명이나 부가적인 말 없이, 최종적으로 생성된 보고서 텍스트만 출력해줘.
     """
     prompt = textwrap.dedent(prompt_template).strip()
-    command = ['gemini', '--yolo', prompt]
+    # print(prompt)
+
+    command = ['claude', '-p', prompt, "--dangerously-skip-permissions"]
 
     try:
         # Using Popen to potentially stream output in the future if needed
