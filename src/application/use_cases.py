@@ -1,4 +1,3 @@
-import textwrap
 from datetime import datetime
 
 from ..domain.models import ReportConfig
@@ -26,16 +25,13 @@ class GenerateWeeklyReportUseCase:
             print("ERROR: Failed to generate report. Skipping notification.")
             return False
 
-        # 2. 헤더 생성 및 전송
-        header = self._build_header(config)
-        full_message = f"{header}\n\n{report.main_content}"
-        self._notifier.send(full_message, report.thread_tickets)
+        # 2. 메인 메시지(제목)와 스레드 메시지(리포트 내용) 전송
+        title = self._build_title(config)
+        self._notifier.send(title, report.main_content)
         return True
 
-    def _build_header(self, config: ReportConfig) -> str:
-        formatted_date = datetime.now().strftime('%Y.%m.%d (%a)')
-        team_prefix = f"{config.team_name} " if config.team_name else ""
-        return textwrap.dedent(f"""
-            {formatted_date}
-            {team_prefix}업무 보고 드립니다.
-        """).strip()
+    def _build_title(self, config: ReportConfig) -> str:
+        """Slack 메인 메시지용 제목 생성 (예: [BE][26.01.27_Daily])"""
+        formatted_date = datetime.now().strftime('%y.%m.%d')
+        prefix = f"[{config.team_prefix}]" if config.team_prefix else ""
+        return f"{prefix}[{formatted_date}_Daily]"

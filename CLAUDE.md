@@ -16,7 +16,7 @@ The application follows Clean Architecture with three layers:
 src/
 ├── main.py                     # Composition Root (dependency injection, CLI factory)
 ├── domain/                     # Core business logic (no external dependencies)
-│   ├── models.py               # DateRange, ReportConfig (space_key, team_name, mention_users), Report
+│   ├── models.py               # DateRange, ReportConfig (space_key, team_name, team_prefix, mention_users), Report
 │   └── services.py             # Date calculation utilities (calculate_this_week_range, etc.)
 ├── application/                # Use cases (depends only on domain)
 │   ├── ports.py                # Protocol interfaces (CLIExecutorPort, ReportGeneratorPort, NotificationPort)
@@ -34,11 +34,12 @@ src/
 
 ### Flow
 1. `main.py` loads config and assembles dependencies using factory pattern
-2. `ReportGenerator` receives config with `space_key` and `mention_users`
+2. `ReportGenerator` receives config with `space_key`, `team_prefix`, and `mention_users`
 3. `CLIExecutor` executes `/daily_report SPACE_KEY "MENTION_USERS"` command
 4. `daily_report.md` automatically calculates date range and searches Confluence page
 5. `daily_report.md` extracts content, analyzes with sequential-thinking, formats report
-6. `SlackAdapter` posts the generated report to Slack
+6. `GenerateWeeklyReportUseCase` builds title (e.g., `[BE][26.01.27_Daily]`) and sends to Slack
+7. `SlackAdapter` posts title as main message, report content as thread reply
 
 ### CLI Plugin Architecture
 
@@ -55,8 +56,9 @@ The application uses a plugin architecture for CLI tools:
 ┌─────────────────────┐                          ┌─────────────────┐
 │ ReportConfig        │                          │ create_cli_     │
 │ (space_key,         │                          │ executor()      │
-│  mention_users)     │                          │ (Factory)       │
-└─────────────────────┘                          └─────────────────┘
+│  team_prefix,       │                          │ (Factory)       │
+│  mention_users)     │                          └─────────────────┘
+└─────────────────────┘
          │
          ▼
 ┌─────────────────────┐
@@ -70,7 +72,7 @@ The application uses a plugin architecture for CLI tools:
 - `CLIExecutorPort`: Protocol interface that all CLI executors must implement
 - `ClaudeCLIExecutor` / `GeminiCLIExecutor`: Execute `/daily_report` command via CLI
 - `ReportGenerator`: Orchestrates CLI execution with config parameters
-- `ReportConfig`: Configuration containing `space_key`, `team_name`, `mention_users`
+- `ReportConfig`: Configuration containing `space_key`, `team_name`, `team_prefix`, `mention_users`
 - `daily_report.md`: Externalized report generation (date calculation, Confluence search, formatting)
 - `create_cli_executor()`: Factory function that creates the appropriate executor
 

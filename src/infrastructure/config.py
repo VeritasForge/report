@@ -25,12 +25,14 @@ def load_config_from_env() -> AppConfig | None:
         return None
 
     team_name = os.environ.get("REPORT_TEAM_NAME", "")
+    team_prefix = os.environ.get("REPORT_TEAM_PREFIX", "")
     mention_users = os.environ.get("REPORT_MENTION_USERS", "")
     cli_type = os.environ.get("CLI_TYPE", "claude")
 
     report_config = ReportConfig(
         space_key=space_key,
         team_name=team_name,
+        team_prefix=team_prefix,
         mention_users=mention_users,
     )
 

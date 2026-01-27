@@ -42,6 +42,7 @@ Before running the script, you need to have the following installed:
 
     # Report Configuration
     REPORT_TEAM_NAME="Backend Team"  # Optional, used in report header
+    REPORT_TEAM_PREFIX="BE"  # Optional, team prefix for Slack message title (e.g., [BE][26.01.27_Daily])
     REPORT_MENTION_USERS="@홍길동 @김철수"  # Optional, users to mention on delay/hold items
 
     # CLI Configuration
@@ -52,6 +53,7 @@ Before running the script, you need to have the following installed:
     *   `SLACK_CHANNEL`: The ID of the Slack channel where the report will be sent.
     *   `CONFLUENCE_SPACE_KEY`: The Confluence space key where weekly pages are stored.
     *   `REPORT_TEAM_NAME`: (Optional) Team name to include in the report header.
+    *   `REPORT_TEAM_PREFIX`: (Optional) Team prefix for Slack message title. Format: `[{prefix}][{YY.MM.DD}_Daily]`. Example: `[BE][26.01.27_Daily]`.
     *   `REPORT_MENTION_USERS`: (Optional) Users to mention when there are delayed or on-hold items.
     *   `CLI_TYPE`: (Optional) CLI to use for report generation. Supported values: `claude` (default), `gemini`.
 
