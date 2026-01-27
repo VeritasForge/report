@@ -7,7 +7,7 @@ This script automatically generates a weekly report by summarizing content from 
 The script performs the following steps:
 
 1.  **Reads Configuration:** It reads product information (name and Confluence URL) and a list of authors from environment variables.
-2.  **Generates Reports:** For each product, it constructs a Confluence URL for the previous week's report and uses the `gemini` CLI to:
+2.  **Generates Reports:** For each product, it constructs a Confluence URL for the previous week's report and uses a CLI tool (Claude or Gemini, configurable via `CLI_TYPE`) to:
     *   Read the content of the Confluence page.
     *   Fetch details of any mentioned JIRA tickets.
     *   Summarize the content into a report with the following sections: `[진행 완료]` (Completed), `[진행 중]` (In Progress), and `[진행 대기]` (Pending).
@@ -18,8 +18,8 @@ The script performs the following steps:
 Before running the script, you need to have the following installed:
 
 *   Python 3.x
-*   [uv](https://github.com/astral-sh/uv)    
-*   [Gemini CLI](https://github.com/google/gemini-cli)
+*   [uv](https://github.com/astral-sh/uv)
+*   [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) or [Gemini CLI](https://github.com/google-gemini/gemini-cli) (at least one required)
 *   The required Python libraries as specified in `pyproject.toml`.
 
 ## Setup
@@ -38,21 +38,39 @@ Before running the script, you need to have the following installed:
     SLACK_CHANNEL="YOUR_SLACK_CHANNEL_ID"
 
     # Confluence Configuration
-    CONFLUENCE_PRODUCTS='[{"name": "VC", "space_key": "MAI"}, {"name": "ER", "space_key": "MAI"}]'
+    CONFLUENCE_SPACE_KEY="PROJ"
+    CONFLUENCE_PAGE_TITLE_PREFIX="Daily meeting"
+    CONFLUENCE_PRODUCTS="ProductA, ProductB"
+    CONFLUENCE_PAGE_PRODUCTS="ProductA, ProductB"  # Optional, defaults to CONFLUENCE_PRODUCTS
     CONFLUENCE_AUTHORS="John Doe,Jane Smith"
+
+    # Report Configuration
+    REPORT_TEAM_NAME="Backend Team"  # Optional, used in report header
+
+    # CLI Configuration
+    CLI_TYPE="claude"  # Optional, "claude" (default) or "gemini"
     ```
 
     *   `SLACK_TOKEN`: Your Slack bot token with `chat:write` permission.
     *   `SLACK_CHANNEL`: The ID of the Slack channel where the report will be sent.
-    *   `CONFLUENCE_PRODUCTS`: A JSON string containing a list of product objects. Each object must have a `name` (product name, used in page title) and a `space_key` (Confluence space key).
+    *   `CONFLUENCE_SPACE_KEY`: The Confluence space key.
+    *   `CONFLUENCE_PAGE_TITLE_PREFIX`: Prefix for page title search.
+    *   `CONFLUENCE_PRODUCTS`: Comma-separated list of product names.
     *   `CONFLUENCE_AUTHORS`: A comma-separated list of author names to filter the content from the Confluence page.
+    *   `REPORT_TEAM_NAME`: (Optional) Team name to include in the report header.
+    *   `CLI_TYPE`: (Optional) CLI to use for report generation. Supported values: `claude` (default), `gemini`.
 
 ## Usage
 
 To run the script, execute the following command from the root of the project:
 
 ```bash
+# Using default CLI (Claude)
 uv run python -m src.main
+
+# Explicitly specify CLI
+CLI_TYPE=claude uv run python -m src.main
+CLI_TYPE=gemini uv run python -m src.main
 ```
 
 The script will then generate the report and post it to the specified Slack channel.
