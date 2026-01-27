@@ -24,32 +24,14 @@ def load_config_from_env() -> AppConfig | None:
         print("ERROR: CONFLUENCE_SPACE_KEY environment variable is not set.")
         return None
 
-    page_title_prefix = os.environ.get("CONFLUENCE_PAGE_TITLE_PREFIX")
-    if not page_title_prefix:
-        print("ERROR: CONFLUENCE_PAGE_TITLE_PREFIX environment variable is not set.")
-        return None
-
-    products = os.environ.get("CONFLUENCE_PRODUCTS")
-    if not products:
-        print("ERROR: CONFLUENCE_PRODUCTS environment variable is not set.")
-        return None
-
-    authors = os.environ.get("CONFLUENCE_AUTHORS")
-    if not authors:
-        print("ERROR: CONFLUENCE_AUTHORS environment variable is not set.")
-        return None
-
-    page_products = os.environ.get("CONFLUENCE_PAGE_PRODUCTS", products)
     team_name = os.environ.get("REPORT_TEAM_NAME", "")
+    mention_users = os.environ.get("REPORT_MENTION_USERS", "")
     cli_type = os.environ.get("CLI_TYPE", "claude")
 
     report_config = ReportConfig(
         space_key=space_key,
-        page_title_prefix=page_title_prefix,
-        products=products,
-        page_products=page_products,
-        authors=authors,
         team_name=team_name,
+        mention_users=mention_users,
     )
 
     return AppConfig(

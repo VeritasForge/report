@@ -16,11 +16,8 @@ class DateRange:
 class ReportConfig:
     """보고서 생성 설정"""
     space_key: str
-    page_title_prefix: str
-    products: str
-    page_products: str
-    authors: str
     team_name: str
+    mention_users: str  # 지연/보류 시 멘션할 사용자 (예: "@홍길동 @김철수")
 
 
 @dataclass

@@ -1,6 +1,5 @@
 from ...application.ports import CLIExecutorPort
-from ...domain.models import DateRange, Report, ReportConfig
-from ...domain.services import build_report_prompt
+from ...domain.models import Report, ReportConfig
 
 
 class ReportGenerator:
@@ -9,13 +8,18 @@ class ReportGenerator:
     def __init__(self, cli_executor: CLIExecutorPort):
         self._cli_executor = cli_executor
 
-    def generate(self, config: ReportConfig, date_range: DateRange) -> Report | None:
-        prompt = build_report_prompt(config, date_range)
-        page_title = f"{config.page_title_prefix} {date_range.format()} ({config.page_products}, etc.)"
-        print(f"Starting report generation for Space: {config.space_key}, Title: {page_title}")
-        print(prompt)
+    def generate(self, config: ReportConfig) -> Report | None:
+        """
+        보고서를 생성합니다.
+        날짜 범위는 daily_report.md에서 실행 시점 기준으로 자동 계산됩니다.
+        """
+        print(f"Starting report generation for Space: {config.space_key}")
+        if config.mention_users:
+            print(f"Executing: /daily_report {config.space_key} \"{config.mention_users}\"")
+        else:
+            print(f"Executing: /daily_report {config.space_key}")
 
-        output = self._cli_executor.execute(prompt)
+        output = self._cli_executor.execute(config.space_key, config.mention_users)
         if output is None:
             return None
 
@@ -23,9 +27,7 @@ class ReportGenerator:
         return self._parse_output(output)
 
     def _parse_output(self, output: str) -> Report:
-        if "---THREAD_TICKETS---" in output:
-            parts = output.split("---THREAD_TICKETS---")
-            main = parts[0].replace("[메인 보고서]", "").strip()
-            thread = parts[1].replace("[스레드용 티켓 목록]", "").strip() if len(parts) > 1 else None
-            return Report(main_content=main, thread_tickets=thread if thread else None)
-        return Report(main_content=output)
+        """CLI 출력을 Report 객체로 파싱"""
+        # daily_report.md의 출력 형식에 맞게 파싱
+        # 출력은 슬랙 호환 형식으로 제공됨
+        return Report(main_content=output.strip())

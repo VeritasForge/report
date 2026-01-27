@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Weekly Report Generator - a Python application that automatically generates weekly reports by summarizing Confluence pages and associated JIRA tickets using a pluggable CLI (Claude or Gemini), then sends reports to Slack.
+Weekly Report Generator - a Python application that automatically generates daily/weekly reports from Confluence pages using a pluggable CLI (Claude or Gemini), then sends reports to Slack. The report generation logic is externalized to `.claude/commands/daily_report.md`.
 
 ## Architecture
 
@@ -16,25 +16,29 @@ The application follows Clean Architecture with three layers:
 src/
 ├── main.py                     # Composition Root (dependency injection, CLI factory)
 ├── domain/                     # Core business logic (no external dependencies)
-│   ├── models.py               # DateRange, ReportConfig, Report
-│   └── services.py             # Date calculation, markdown conversion, prompt builder
+│   ├── models.py               # DateRange, ReportConfig (space_key, team_name, mention_users), Report
+│   └── services.py             # Date calculation utilities (calculate_this_week_range, etc.)
 ├── application/                # Use cases (depends only on domain)
 │   ├── ports.py                # Protocol interfaces (CLIExecutorPort, ReportGeneratorPort, NotificationPort)
 │   └── use_cases.py            # GenerateWeeklyReportUseCase
 └── infrastructure/             # External system adapters
-    ├── config.py               # Environment variable loading
+    ├── config.py               # Environment variable loading (AppConfig)
     └── adapters/
-        ├── cli_executors.py    # CLI executors (Claude, Gemini)
+        ├── cli_executors.py    # CLI executors (execute /daily_report command with space_key, mention_users)
         ├── report_generator.py # Report generation orchestrator
         └── slack_adapter.py    # Slack API integration
+.claude/
+└── commands/
+    └── daily_report.md         # Report generation prompt (date calculation, Confluence search, formatting)
 ```
 
 ### Flow
 1. `main.py` loads config and assembles dependencies using factory pattern
-2. `create_cli_executor()` creates the appropriate CLI executor based on `CLI_TYPE`
-3. `ReportGenerator` orchestrates prompt building and CLI execution
-4. `GenerateWeeklyReportUseCase` coordinates the report generation workflow
-5. `SlackAdapter` posts the report to Slack
+2. `ReportGenerator` receives config with `space_key` and `mention_users`
+3. `CLIExecutor` executes `/daily_report SPACE_KEY "MENTION_USERS"` command
+4. `daily_report.md` automatically calculates date range and searches Confluence page
+5. `daily_report.md` extracts content, analyzes with sequential-thinking, formats report
+6. `SlackAdapter` posts the generated report to Slack
 
 ### CLI Plugin Architecture
 
@@ -48,26 +52,34 @@ The application uses a plugin architecture for CLI tools:
          │                                                 ▲
          │                                                 │
          ▼                                                 │
-┌─────────────────┐                              ┌─────────────────┐
-│ build_report_   │                              │ create_cli_     │
-│ prompt()        │                              │ executor()      │
-│ (Domain Service)│                              │ (Factory)       │
-└─────────────────┘                              └─────────────────┘
+┌─────────────────────┐                          ┌─────────────────┐
+│ ReportConfig        │                          │ create_cli_     │
+│ (space_key,         │                          │ executor()      │
+│  mention_users)     │                          │ (Factory)       │
+└─────────────────────┘                          └─────────────────┘
+         │
+         ▼
+┌─────────────────────┐
+│ .claude/commands/   │
+│ daily_report.md     │
+│ (Date calc + Report)│
+└─────────────────────┘
 ```
 
 **Components:**
 - `CLIExecutorPort`: Protocol interface that all CLI executors must implement
-- `ClaudeCLIExecutor` / `GeminiCLIExecutor`: Concrete implementations for each CLI
-- `ReportGenerator`: Orchestrates prompt building and CLI execution
-- `build_report_prompt()`: Domain service that generates the prompt (CLI-agnostic)
+- `ClaudeCLIExecutor` / `GeminiCLIExecutor`: Execute `/daily_report` command via CLI
+- `ReportGenerator`: Orchestrates CLI execution with config parameters
+- `ReportConfig`: Configuration containing `space_key`, `team_name`, `mention_users`
+- `daily_report.md`: Externalized report generation (date calculation, Confluence search, formatting)
 - `create_cli_executor()`: Factory function that creates the appropriate executor
 
 **Adding a new CLI executor:**
-1. Create a new class in `cli_executors.py` implementing `execute(prompt: str) -> str | None`
+1. Create a new class in `cli_executors.py` implementing `execute(space_key: str, mention_users: str) -> str | None`
 2. Register it in the `executors` dict in `create_cli_executor()` in `main.py`
 
 ### External Dependencies
-- **Claude CLI** or **Gemini CLI**: Must be installed separately and available in PATH. Used to read Confluence pages via Atlassian MCP and summarize content
+- **Claude CLI** or **Gemini CLI**: Must be installed separately and available in PATH. Executes `/daily_report` command with Atlassian MCP
 - **Slack SDK**: For posting reports to Slack channels
 
 ## Design Principles

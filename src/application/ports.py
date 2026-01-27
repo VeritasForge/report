@@ -1,21 +1,21 @@
 from typing import Protocol
 
-from ..domain.models import DateRange, Report, ReportConfig
+from ..domain.models import Report, ReportConfig
 
 
 class CLIExecutorPort(Protocol):
     """CLI 실행기 추상 인터페이스"""
 
-    def execute(self, prompt: str) -> str | None:
-        """프롬프트를 CLI에 전달하고 결과 반환"""
+    def execute(self, space_key: str, mention_users: str = "") -> str | None:
+        """/daily_report 커맨드를 실행하고 결과 반환"""
         ...
 
 
 class ReportGeneratorPort(Protocol):
     """보고서 생성기 추상 인터페이스"""
 
-    def generate(self, config: ReportConfig, date_range: DateRange) -> Report | None:
-        """Confluence 페이지에서 보고서 생성"""
+    def generate(self, config: ReportConfig) -> Report | None:
+        """Confluence 페이지에서 보고서 생성 (날짜는 실행 시점 기준 자동 계산)"""
         ...
 
 

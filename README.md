@@ -6,12 +6,12 @@ This script automatically generates a weekly report by summarizing content from 
 
 The script performs the following steps:
 
-1.  **Reads Configuration:** It reads product information (name and Confluence URL) and a list of authors from environment variables.
-2.  **Generates Reports:** For each product, it constructs a Confluence URL for the previous week's report and uses a CLI tool (Claude or Gemini, configurable via `CLI_TYPE`) to:
-    *   Read the content of the Confluence page.
-    *   Fetch details of any mentioned JIRA tickets.
-    *   Summarize the content into a report with the following sections: `[진행 완료]` (Completed), `[진행 중]` (In Progress), and `[진행 대기]` (Pending).
-3.  **Sends to Slack:** It consolidates the reports for all products and sends them as a single message to a configured Slack channel.
+1.  **Calculates Date Range:** Automatically determines this week's date range (Monday to Friday).
+2.  **Generates Reports:** Uses the `/daily_report` command via CLI tool (Claude or Gemini) to:
+    *   Search and read the Confluence page by space key and calculated page title.
+    *   Extract team members' work content for today.
+    *   Generate a C-Level formatted report.
+3.  **Sends to Slack:** Posts the generated report to a configured Slack channel.
 
 ## Prerequisites
 
@@ -38,14 +38,11 @@ Before running the script, you need to have the following installed:
     SLACK_CHANNEL="YOUR_SLACK_CHANNEL_ID"
 
     # Confluence Configuration
-    CONFLUENCE_SPACE_KEY="PROJ"
-    CONFLUENCE_PAGE_TITLE_PREFIX="Daily meeting"
-    CONFLUENCE_PRODUCTS="ProductA, ProductB"
-    CONFLUENCE_PAGE_PRODUCTS="ProductA, ProductB"  # Optional, defaults to CONFLUENCE_PRODUCTS
-    CONFLUENCE_AUTHORS="John Doe,Jane Smith"
+    CONFLUENCE_SPACE_KEY="MAI"
 
     # Report Configuration
     REPORT_TEAM_NAME="Backend Team"  # Optional, used in report header
+    REPORT_MENTION_USERS="@홍길동 @김철수"  # Optional, users to mention on delay/hold items
 
     # CLI Configuration
     CLI_TYPE="claude"  # Optional, "claude" (default) or "gemini"
@@ -53,12 +50,13 @@ Before running the script, you need to have the following installed:
 
     *   `SLACK_TOKEN`: Your Slack bot token with `chat:write` permission.
     *   `SLACK_CHANNEL`: The ID of the Slack channel where the report will be sent.
-    *   `CONFLUENCE_SPACE_KEY`: The Confluence space key.
-    *   `CONFLUENCE_PAGE_TITLE_PREFIX`: Prefix for page title search.
-    *   `CONFLUENCE_PRODUCTS`: Comma-separated list of product names.
-    *   `CONFLUENCE_AUTHORS`: A comma-separated list of author names to filter the content from the Confluence page.
+    *   `CONFLUENCE_SPACE_KEY`: The Confluence space key where weekly pages are stored.
     *   `REPORT_TEAM_NAME`: (Optional) Team name to include in the report header.
+    *   `REPORT_MENTION_USERS`: (Optional) Users to mention when there are delayed or on-hold items.
     *   `CLI_TYPE`: (Optional) CLI to use for report generation. Supported values: `claude` (default), `gemini`.
+
+3.  **Configure Daily Report Command:**
+    The report generation logic is defined in `.claude/commands/daily_report.md`. This command is automatically executed by the CLI with the calculated date range.
 
 ## Usage
 

@@ -1,8 +1,7 @@
 import textwrap
-from datetime import date, datetime
+from datetime import datetime
 
 from ..domain.models import ReportConfig
-from ..domain.services import calculate_last_week_range
 from .ports import NotificationPort, ReportGeneratorPort
 
 
@@ -19,18 +18,15 @@ class GenerateWeeklyReportUseCase:
 
     def execute(self, config: ReportConfig) -> bool:
         """보고서 생성 및 전송 실행"""
-        # 1. 날짜 범위 계산
-        date_range = calculate_last_week_range(date.today())
-        page_title = f"{config.page_title_prefix} {date_range.format()} ({config.page_products}, etc.)"
-        print(f"\n--------------------\nGenerating report from: {page_title}\n--------------------")
+        print(f"\n--------------------\nGenerating report from: {config.space_key}\n--------------------")
 
-        # 2. 보고서 생성
-        report = self._report_generator.generate(config, date_range)
+        # 1. 보고서 생성 (/daily_report 커맨드 실행 - 날짜는 자동 계산됨)
+        report = self._report_generator.generate(config)
         if report is None:
             print("ERROR: Failed to generate report. Skipping notification.")
             return False
 
-        # 3. 헤더 생성 및 전송
+        # 2. 헤더 생성 및 전송
         header = self._build_header(config)
         full_message = f"{header}\n\n{report.main_content}"
         self._notifier.send(full_message, report.thread_tickets)
@@ -41,5 +37,5 @@ class GenerateWeeklyReportUseCase:
         team_prefix = f"{config.team_name} " if config.team_name else ""
         return textwrap.dedent(f"""
             {formatted_date}
-            {team_prefix}주간 업무 보고 드립니다.
+            {team_prefix}업무 보고 드립니다.
         """).strip()
