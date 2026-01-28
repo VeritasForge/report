@@ -1,4 +1,4 @@
-.PHONY: help install lock run report clean lint cron-install cron-uninstall cron-status cron-logs
+.PHONY: help install lock run report clean lint test coverage cron-install cron-uninstall cron-status cron-logs
 
 # Project configuration
 PROJECT_DIR := $(shell pwd)
@@ -16,6 +16,8 @@ help:
 	@echo "  make report        - Alias for 'make run'"
 	@echo "  make clean         - Clean cache files"
 	@echo "  make lint          - Run linter (ruff)"
+	@echo "  make test          - Run tests"
+	@echo "  make coverage      - Show coverage report"
 	@echo ""
 	@echo "Cron commands:"
 	@echo "  make cron-install  - Register cron job (Mon-Fri 12:00 PM)"
@@ -47,6 +49,14 @@ clean:
 # Run linter
 lint:
 	uv run ruff check src/
+
+# Run tests
+test:
+	uv run pytest
+
+# Show coverage report
+coverage:
+	uv run coverage report --show-missing
 
 # ========================================
 # Cron Job Management

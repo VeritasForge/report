@@ -84,7 +84,12 @@ Install dev dependencies and run tests:
 uv sync --all-extras
 
 # Run all tests
-uv run pytest
+make test
+# or: uv run pytest
+
+# Show coverage report (after running tests with --cov)
+make coverage
+# or: uv run coverage report --show-missing
 
 # Run with coverage report
 uv run pytest --cov=src --cov-report=term-missing

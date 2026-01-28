@@ -1,6 +1,6 @@
 # Wrap Up Changes
 
-작업 완료 후 프로젝트 문서를 현재 코드베이스 상태에 맞게 업데이트합니다.
+작업 완료 후 프로젝트 문서와 권한 설정을 현재 상태에 맞게 업데이트합니다.
 
 ## 문서 구조
 
@@ -8,12 +8,39 @@
 
 - **README.md**: 사용자용 문서 (설치, 설정, 사용법)
 - **CLAUDE.md**: AI용 컨텍스트 (아키텍처, 규약) - README.md를 @import로 참조
+- **.claude/settings.local.json**: Claude Code 권한 설정 (자동 승인 규칙)
 
 ## 수행 작업
 
+### 1. 문서 업데이트
 1. 현재 프로젝트의 디렉토리 구조를 분석합니다 (`src/` 하위 파일들)
 2. README.md와 CLAUDE.md 파일을 읽습니다
 3. 변경된 내용에 따라 문서를 업데이트합니다
+
+### 2. 권한 설정 동기화
+현재 세션에서 사용자가 승인한 권한들을 `.claude/settings.local.json`에 기록하여, 이후 동일한 작업 시 반복적인 승인 요청을 방지합니다.
+
+**수행 절차:**
+1. `.claude/settings.local.json` 파일을 읽습니다
+2. 현재 세션에서 승인된 도구/명령어 중 아직 등록되지 않은 것을 확인합니다
+3. 누락된 권한을 `permissions.allow` 배열에 추가합니다
+
+**권한 패턴 예시:**
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",                              // 모든 Bash 명령어
+      "Bash(git:*)",                          // git으로 시작하는 명령어
+      "Bash(make:*)",                         // make로 시작하는 명령어
+      "WebFetch(domain:github.com)",          // 특정 도메인
+      "mcp__server-name__tool-name"           // MCP 도구
+    ]
+  }
+}
+```
+
+**참고:** 보안상 민감한 명령어(rm -rf, sudo 등)는 개별 승인을 유지하는 것이 좋습니다.
 
 ## 업데이트 규칙
 
