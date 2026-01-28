@@ -94,9 +94,66 @@ uv run pytest tests/unit/domain/
 uv run pytest tests/integration/
 ```
 
-## Apply Cronicle
+## Scheduling
 
-We use [Cronicle](https://cronicle.net/) for batch job.
+There are two ways to schedule the report generator: **cron** (simple) and **Cronicle** (advanced).
+
+### Option 1: cron (Recommended for Simple Setup)
+
+The easiest way to schedule the report generator is using cron with the provided Makefile commands.
+
+#### Quick Setup
+
+```bash
+# Install cron job (Mon-Fri 12:00 PM)
+make cron-install
+
+# Check status
+make cron-status
+
+# View logs
+make cron-logs
+
+# Remove cron job
+make cron-uninstall
+```
+
+#### Manual Setup
+
+If you prefer manual setup:
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line (Mon-Fri 12:00 PM)
+0 12 * * 1-5 cd /path/to/report && /path/to/uv run python -m src.main >> /path/to/report/logs/cron.log 2>&1
+```
+
+#### Troubleshooting
+
+1. **Verify cron is running:**
+   ```bash
+   crontab -l
+   ```
+
+2. **Check logs:**
+   ```bash
+   tail -f logs/cron.log
+   ```
+
+3. **Test manually:**
+   ```bash
+   make run
+   ```
+
+4. **macOS permissions:** If cron jobs don't run, ensure Terminal/cron has "Full Disk Access" in System Preferences > Security & Privacy > Privacy.
+
+---
+
+### Option 2: Cronicle (Advanced)
+
+For a web-based UI with execution history and notifications, use [Cronicle](https://cronicle.net/).
 
 ### 1. Install Cronicle
 

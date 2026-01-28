@@ -27,9 +27,13 @@ src/
         ├── cli_executors.py    # CLI executors (execute /daily_report command with space_key, mention_users)
         ├── report_generator.py # Report generation orchestrator
         └── slack_adapter.py    # Slack API integration
+
 .claude/
 └── commands/
     └── daily_report.md         # Report generation prompt (date calculation, Confluence search, formatting)
+
+logs/                           # Cron execution logs (gitignored)
+Makefile                        # Build commands including cron job management (cron-install, cron-uninstall, cron-status, cron-logs)
 ```
 
 ### Flow
