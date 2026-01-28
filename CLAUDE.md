@@ -159,3 +159,40 @@ Python 3.12+ 스타일 사용:
 - 기존 테스트 실패 = 기존 동작에 영향을 주는 변경
 - AI가 임의로 테스트를 수정하거나 삭제하지 않음
 - 개발자가 변경을 승인한 경우에만 테스트 업데이트 진행
+
+### II. Strict TDD Protocol (Non-Negotiable)
+Follow Robert C. Martin's 3 Rules of TDD:
+1.  **Red**: Do not write production code unless it is to pass a failing unit test.
+2.  **Green**: Do not write more code than is sufficient to pass the test.
+3.  **Refactor**: Do not add functionality while refactoring.
+*   **Test Layers**: Unit (10ms, Mocked Ports) -> Integration (DB/SQLModel) -> E2E (API/TestClient).
+
+**Testing Strategy & Style Guide (Detailed):**
+1.  **Given/When/Then Structure**: All tests MUST follow this structure, explicitly commented.
+    -   *Example*: 'Given: User created -> And: Logged in -> When: Click button -> Then: Show modal'.
+2.  **Single Concept**: Verify one concept per test function.
+3.  **Parametrized Test**: Use 'pytest.mark.parametrize' for data-driven tests.
+4.  **Descriptive Naming**: 'test_should_return_error_when_invalid_input()' over 'test_input()'.
+
+**테스트 실행:**
+```bash
+# 전체 테스트
+uv run pytest
+
+# 커버리지 포함
+uv run pytest --cov=src --cov-report=term-missing
+
+# 특정 레이어만
+uv run pytest tests/unit/domain/
+```
+
+**테스트 구조:**
+```
+tests/
+├── conftest.py              # 공유 픽스처
+├── unit/                    # 단위 테스트 (Mocked, <10ms)
+│   ├── domain/              # Domain 레이어 (Mock 불필요)
+│   ├── application/         # Application 레이어 (Port Mock)
+│   └── infrastructure/      # Infrastructure 레이어 (외부 의존성 Mock)
+└── integration/             # 통합 테스트 (실제 의존성)
+```

@@ -75,6 +75,24 @@ CLI_TYPE=gemini uv run python -m src.main
 
 The script will then generate the report and post it to the specified Slack channel.
 
+## Testing
+
+Install dev dependencies and run tests:
+
+```bash
+# Install dev dependencies
+uv sync --all-extras
+
+# Run all tests
+uv run pytest
+
+# Run with coverage report
+uv run pytest --cov=src --cov-report=term-missing
+
+# Run specific test layer
+uv run pytest tests/unit/domain/
+uv run pytest tests/integration/
+```
 
 ## Apply Cronicle
 
