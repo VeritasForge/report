@@ -3,6 +3,7 @@
 # Project configuration
 PROJECT_DIR := $(shell pwd)
 UV_PATH := $(shell which uv)
+SHELL_PATH := $(shell echo $$PATH)
 LOG_DIR := $(PROJECT_DIR)/logs
 CRON_SCHEDULE := 0 12 * * 1-5
 CRON_MARKER := \# report-generator-cron
@@ -70,7 +71,7 @@ $(LOG_DIR):
 cron-install: $(LOG_DIR)
 	@echo "Installing cron job..."
 	@(crontab -l 2>/dev/null | grep -v "$(CRON_MARKER)"; \
-	  echo "$(CRON_SCHEDULE) cd $(PROJECT_DIR) && $(UV_PATH) run python -m src.main >> $(LOG_DIR)/cron.log 2>&1 $(CRON_MARKER)") | crontab -
+	  echo "$(CRON_SCHEDULE) export PATH=$(SHELL_PATH) && cd $(PROJECT_DIR) && $(UV_PATH) run python -m src.main >> $(LOG_DIR)/cron.log 2>&1 $(CRON_MARKER)") | crontab -
 	@echo "✓ Cron job installed: $(CRON_SCHEDULE) (Mon-Fri 12:00 PM)"
 	@echo "  Log file: $(LOG_DIR)/cron.log"
 

@@ -132,7 +132,9 @@ If you prefer manual setup:
 crontab -e
 
 # Add this line (Mon-Fri 12:00 PM)
-0 12 * * 1-5 cd /path/to/report && /path/to/uv run python -m src.main >> /path/to/report/logs/cron.log 2>&1
+# Note: PATH export is required because cron runs with minimal environment.
+# Without it, CLI tools (claude, npx, docker) won't be found.
+0 12 * * 1-5 export PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin && cd /path/to/report && /path/to/uv run python -m src.main >> /path/to/report/logs/cron.log 2>&1
 ```
 
 #### Troubleshooting
