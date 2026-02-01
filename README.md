@@ -118,66 +118,7 @@ uv run pytest tests/integration/
 
 ## Scheduling
 
-There are two ways to schedule the report generator: **cron** (simple) and **Cronicle** (advanced).
-
-### Option 1: cron (Recommended for Simple Setup)
-
-The easiest way to schedule the report generator is using cron with the provided Makefile commands.
-
-#### Quick Setup
-
-```bash
-# Install cron job (Mon-Fri 12:00 PM)
-make cron-install
-
-# Check status
-make cron-status
-
-# View logs
-make cron-logs
-
-# Remove cron job
-make cron-uninstall
-```
-
-#### Manual Setup
-
-If you prefer manual setup:
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add this line (Mon-Fri 12:00 PM)
-# Note: PATH export is required because cron runs with minimal environment.
-# Without it, CLI tools (claude, npx, docker) won't be found.
-0 12 * * 1-5 export PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin && cd /path/to/report && /path/to/uv run python -m src.main >> /path/to/report/logs/cron.log 2>&1
-```
-
-#### Troubleshooting
-
-1. **Verify cron is running:**
-   ```bash
-   crontab -l
-   ```
-
-2. **Check logs:**
-   ```bash
-   tail -f logs/cron.log
-   ```
-
-3. **Test manually:**
-   ```bash
-   make run
-   ```
-
-4. **macOS permissions:** If cron jobs don't run, ensure Terminal/cron has "Full Disk Access" in System Preferences > Security & Privacy > Privacy.
-
----
-
-### Option 2: Cronicle (Advanced)
-
-For a web-based UI with execution history and notifications, use [Cronicle](https://cronicle.net/).
+This project uses [Cronicle](https://cronicle.net/) for scheduling. Cronicle provides a web-based UI with execution history and notifications.
 
 ### 1. Install Cronicle
 
@@ -262,21 +203,30 @@ Password:
 
 After execution, access http://localhost:3012 and log in with admin/admin!
 
-### 4. Set up Schedule Event
+### 4. Set up Schedule Events
 
-Navigate to the Schedule tab and create an event using the Add Event button. 
-The event created here can be considered a single task in crontab.
+Navigate to the Schedule tab and create events using the Add Event button.
 
-Set the **Plugin** to Shell Script and then write the following script. 
+#### Daily Report
 
+- **Title**: `Daily Report`
+- **Timing**: Mon–Fri, 12:00, Asia/Seoul
+- **Plugin**: Shell Script
+- **Script**:
 ```sh
 #!/bin/sh
-
-# Enter your shell script code here
-
 cd /Users/cjynim/lab/report
-
 su cjynim -c "uv run python -m src.main"
 ```
 
-In **Timing**, configure the desired days and times for the event to run periodically.
+#### Weekly Report
+
+- **Title**: `Weekly Report`
+- **Timing**: Monday, 12:00, Asia/Seoul
+- **Plugin**: Shell Script
+- **Script**:
+```sh
+#!/bin/sh
+cd /Users/cjynim/lab/report
+su cjynim -c "REPORT_MODE=weekly uv run python -m src.main"
+```

@@ -34,8 +34,7 @@ src/
     ├── daily_report.md         # Daily report prompt (date calculation, Confluence search, formatting)
     └── weekly_report.md        # Weekly summary prompt (reads all daily pages, generates consolidated report)
 
-logs/                           # Cron execution logs (gitignored)
-Makefile                        # Build commands including cron job management (cron-install, cron-uninstall, cron-status, cron-logs)
+Makefile                        # Build commands (install, run, test, coverage, etc.)
 ```
 
 ### Flow
