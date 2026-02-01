@@ -13,6 +13,7 @@ class AppConfig:
     slack_token: str
     slack_channel: str
     cli_type: str
+    report_mode: str = "daily"
 
 
 def load_config_from_env() -> AppConfig | None:
@@ -28,6 +29,7 @@ def load_config_from_env() -> AppConfig | None:
     team_prefix = os.environ.get("REPORT_TEAM_PREFIX", "")
     mention_users = os.environ.get("REPORT_MENTION_USERS", "")
     cli_type = os.environ.get("CLI_TYPE", "claude")
+    report_mode = os.environ.get("REPORT_MODE", "daily")
 
     report_config = ReportConfig(
         space_key=space_key,
@@ -41,4 +43,5 @@ def load_config_from_env() -> AppConfig | None:
         slack_token=os.environ.get("SLACK_TOKEN", ""),
         slack_channel=os.environ.get("SLACK_CHANNEL", ""),
         cli_type=cli_type,
+        report_mode=report_mode,
     )

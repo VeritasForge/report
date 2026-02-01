@@ -4,14 +4,22 @@ This script automatically generates a weekly report by summarizing content from 
 
 ## Description
 
-The script performs the following steps:
+The script supports two modes: **daily** (default) and **weekly**.
 
+### Daily Mode
 1.  **Calculates Date Range:** Automatically determines this week's date range (Monday to Friday).
 2.  **Generates Reports:** Uses the `/daily_report` command via CLI tool (Claude or Gemini) to:
     *   Search and read the Confluence page by space key and calculated page title.
     *   Extract team members' work content for today.
     *   Generate a C-Level formatted report.
 3.  **Sends to Slack:** Posts the generated report to a configured Slack channel.
+
+### Weekly Mode
+1.  **Calculates Date Range:** Determines the full week range (Monday to Friday).
+2.  **Generates Summary:** Uses the `/weekly_report` command via CLI tool to:
+    *   Read all daily pages from the week.
+    *   Summarize the week's work into a consolidated report.
+3.  **Sends to Slack:** Posts the weekly summary with title format `[{prefix}][{YY.MM.DD}_Weekly]`.
 
 ## Prerequisites
 
@@ -47,30 +55,39 @@ Before running the script, you need to have the following installed:
 
     # CLI Configuration
     CLI_TYPE="claude"  # Optional, "claude" (default) or "gemini"
+
+    # Report Mode
+    REPORT_MODE="daily"  # Optional, "daily" (default) or "weekly"
     ```
 
     *   `SLACK_TOKEN`: Your Slack bot token with `chat:write` permission.
     *   `SLACK_CHANNEL`: The ID of the Slack channel where the report will be sent.
     *   `CONFLUENCE_SPACE_KEY`: The Confluence space key where weekly pages are stored.
     *   `REPORT_TEAM_NAME`: (Optional) Team name to include in the report header.
-    *   `REPORT_TEAM_PREFIX`: (Optional) Team prefix for Slack message title. Format: `[{prefix}][{YY.MM.DD}_Daily]`. Example: `[BE][26.01.27_Daily]`.
+    *   `REPORT_TEAM_PREFIX`: (Optional) Team prefix for Slack message title. Format: `[{prefix}][{YY.MM.DD}_Daily]` or `[{prefix}][{YY.MM.DD}_Weekly]`.
     *   `REPORT_MENTION_USERS`: (Optional) Users to mention when there are delayed or on-hold items.
     *   `CLI_TYPE`: (Optional) CLI to use for report generation. Supported values: `claude` (default), `gemini`.
+    *   `REPORT_MODE`: (Optional) Report mode. `daily` (default) generates a single day report, `weekly` generates a weekly summary.
 
-3.  **Configure Daily Report Command:**
-    The report generation logic is defined in `.claude/commands/daily_report.md`. This command is automatically executed by the CLI with the calculated date range.
+3.  **Configure Report Commands:**
+    The report generation logic is defined in `.claude/commands/daily_report.md` (daily mode) and `.claude/commands/weekly_report.md` (weekly mode). These commands are automatically executed by the CLI with the calculated date range.
 
 ## Usage
 
 To run the script, execute the following command from the root of the project:
 
 ```bash
-# Using default CLI (Claude)
+# Run daily report (default)
 uv run python -m src.main
+# or: make run
 
 # Explicitly specify CLI
 CLI_TYPE=claude uv run python -m src.main
 CLI_TYPE=gemini uv run python -m src.main
+
+# Run weekly report
+REPORT_MODE=weekly uv run python -m src.main
+# or: make weekly
 ```
 
 The script will then generate the report and post it to the specified Slack channel.

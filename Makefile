@@ -1,4 +1,4 @@
-.PHONY: help install lock run report clean lint test coverage cron-install cron-uninstall cron-status cron-logs
+.PHONY: help install lock run report weekly clean lint test coverage cron-install cron-uninstall cron-status cron-logs
 
 # Project configuration
 PROJECT_DIR := $(shell pwd)
@@ -15,6 +15,7 @@ help:
 	@echo "  make lock          - Update lock file"
 	@echo "  make run           - Run the daily report generator"
 	@echo "  make report        - Alias for 'make run'"
+	@echo "  make weekly        - Run the weekly summary report"
 	@echo "  make clean         - Clean cache files"
 	@echo "  make lint          - Run linter (ruff)"
 	@echo "  make test          - Run tests"
@@ -40,6 +41,10 @@ run:
 
 # Alias for run
 report: run
+
+# Run weekly report
+weekly:
+	REPORT_MODE=weekly uv run python -m src.main
 
 # Clean cache files
 clean:

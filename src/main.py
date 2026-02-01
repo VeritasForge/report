@@ -1,5 +1,6 @@
 from .application.ports import CLIExecutorPort
 from .application.use_cases import GenerateWeeklyReportUseCase
+from .application.weekly_summary_use_case import GenerateWeeklySummaryUseCase
 from .infrastructure.adapters.cli_executors import ClaudeCLIExecutor, GeminiCLIExecutor
 from .infrastructure.adapters.report_generator import ReportGenerator
 from .infrastructure.adapters.slack_adapter import SlackAdapter
@@ -28,19 +29,31 @@ def main():
         print("Exiting due to configuration error.")
         return
 
-    # 2. 어댑터 생성 (의존성 인스턴스화)
-    cli_executor = create_cli_executor(config.cli_type)
-    report_generator = ReportGenerator(cli_executor)
-    notifier = SlackAdapter(token=config.slack_token, channel=config.slack_channel)
-
-    # 3. 유스케이스 생성 (의존성 주입)
-    use_case = GenerateWeeklyReportUseCase(
-        report_generator=report_generator,
-        notifier=notifier,
-    )
-
-    # 4. 실행
     print(f"Using CLI: {config.cli_type}")
+
+    if config.report_mode == "weekly":
+        # weekly 전용 경로
+        executors: dict[str, type] = {"claude": ClaudeCLIExecutor, "gemini": GeminiCLIExecutor}
+        executor_class = executors.get(config.cli_type)
+        if executor_class is None:
+            raise ValueError(f"Unknown CLI type: {config.cli_type}. Supported: {list(executors.keys())}")
+        cli_executor = executor_class(command="weekly_report")
+        report_generator = ReportGenerator(cli_executor)
+        notifier = SlackAdapter(token=config.slack_token, channel=config.slack_channel)
+        use_case = GenerateWeeklySummaryUseCase(
+            report_generator=report_generator,
+            notifier=notifier,
+        )
+    else:
+        # daily 경로: 기존 코드 100% 동일
+        cli_executor = create_cli_executor(config.cli_type)
+        report_generator = ReportGenerator(cli_executor)
+        notifier = SlackAdapter(token=config.slack_token, channel=config.slack_channel)
+        use_case = GenerateWeeklyReportUseCase(
+            report_generator=report_generator,
+            notifier=notifier,
+        )
+
     success = use_case.execute(config.report)
     if not success:
         print("ERROR: Failed to generate and send report.")

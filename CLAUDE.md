@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Weekly Report Generator - a Python application that automatically generates daily/weekly reports from Confluence pages using a pluggable CLI (Claude or Gemini), then sends reports to Slack. The report generation logic is externalized to `.claude/commands/daily_report.md`.
+Weekly Report Generator - a Python application that automatically generates daily/weekly reports from Confluence pages using a pluggable CLI (Claude or Gemini), then sends reports to Slack. The report generation logic is externalized to `.claude/commands/daily_report.md` (daily mode) and `.claude/commands/weekly_report.md` (weekly mode). The mode is controlled by `REPORT_MODE` env var (`daily` | `weekly`).
 
 ## Architecture
 
@@ -14,36 +14,47 @@ The application follows Clean Architecture with three layers:
 
 ```
 src/
-├── main.py                     # Composition Root (dependency injection, CLI factory)
+├── main.py                     # Composition Root (dependency injection, CLI factory, report_mode branching)
 ├── domain/                     # Core business logic (no external dependencies)
 │   ├── models.py               # DateRange, ReportConfig (space_key, team_name, team_prefix, mention_users), Report
 │   └── services.py             # Date calculation utilities (calculate_this_week_range, etc.)
 ├── application/                # Use cases (depends only on domain)
 │   ├── ports.py                # Protocol interfaces (CLIExecutorPort, ReportGeneratorPort, NotificationPort)
-│   └── use_cases.py            # GenerateWeeklyReportUseCase
+│   ├── use_cases.py            # GenerateWeeklyReportUseCase (daily mode)
+│   └── weekly_summary_use_case.py  # GenerateWeeklySummaryUseCase (weekly mode)
 └── infrastructure/             # External system adapters
-    ├── config.py               # Environment variable loading (AppConfig)
+    ├── config.py               # Environment variable loading (AppConfig incl. report_mode)
     └── adapters/
-        ├── cli_executors.py    # CLI executors (execute /daily_report command with space_key, mention_users)
+        ├── cli_executors.py    # CLI executors (execute /daily_report or /weekly_report via command param)
         ├── report_generator.py # Report generation orchestrator
         └── slack_adapter.py    # Slack API integration
 
 .claude/
 └── commands/
-    └── daily_report.md         # Report generation prompt (date calculation, Confluence search, formatting)
+    ├── daily_report.md         # Daily report prompt (date calculation, Confluence search, formatting)
+    └── weekly_report.md        # Weekly summary prompt (reads all daily pages, generates consolidated report)
 
 logs/                           # Cron execution logs (gitignored)
 Makefile                        # Build commands including cron job management (cron-install, cron-uninstall, cron-status, cron-logs)
 ```
 
 ### Flow
+`main.py` branches on `config.report_mode` (`daily` | `weekly`):
+
+**Daily mode** (default):
 1. `main.py` loads config and assembles dependencies using factory pattern
 2. `ReportGenerator` receives config with `space_key`, `team_prefix`, and `mention_users`
-3. `CLIExecutor` executes `/daily_report SPACE_KEY "MENTION_USERS"` command
+3. `CLIExecutor(command="daily_report")` executes `/daily_report SPACE_KEY "MENTION_USERS"` command
 4. `daily_report.md` automatically calculates date range and searches Confluence page
 5. `daily_report.md` extracts content, analyzes with sequential-thinking, formats report
 6. `GenerateWeeklyReportUseCase` builds title (e.g., `[BE][26.01.27_Daily]`) and sends to Slack
 7. `SlackAdapter` posts title as main message, report content as thread reply
+
+**Weekly mode** (`REPORT_MODE=weekly`):
+1. `main.py` creates `CLIExecutor(command="weekly_report")` and `GenerateWeeklySummaryUseCase`
+2. `CLIExecutor` executes `/weekly_report SPACE_KEY "MENTION_USERS"` command
+3. `weekly_report.md` reads all daily pages from the week and generates a consolidated summary
+4. `GenerateWeeklySummaryUseCase` builds title (e.g., `[BE][26.01.27_Weekly]`) and sends to Slack
 
 ### CLI Plugin Architecture
 
@@ -74,18 +85,24 @@ The application uses a plugin architecture for CLI tools:
 
 **Components:**
 - `CLIExecutorPort`: Protocol interface that all CLI executors must implement
-- `ClaudeCLIExecutor` / `GeminiCLIExecutor`: Execute `/daily_report` command via CLI
+- `ClaudeCLIExecutor` / `GeminiCLIExecutor`: Execute CLI commands via `command` constructor param (default: `"daily_report"`)
 - `ReportGenerator`: Orchestrates CLI execution with config parameters
 - `ReportConfig`: Configuration containing `space_key`, `team_name`, `team_prefix`, `mention_users`
-- `daily_report.md`: Externalized report generation (date calculation, Confluence search, formatting)
+- `daily_report.md`: Daily report generation (date calculation, Confluence search, formatting)
+- `weekly_report.md`: Weekly summary generation (reads all daily pages, consolidated report)
 - `create_cli_executor()`: Factory function that creates the appropriate executor
+
+**Switching command at runtime:**
+- `ClaudeCLIExecutor(command="weekly_report")` makes the executor run `/weekly_report` instead of `/daily_report`
+- Same pattern applies to `GeminiCLIExecutor`
 
 **Adding a new CLI executor:**
 1. Create a new class in `cli_executors.py` implementing `execute(space_key: str, mention_users: str) -> str | None`
-2. Register it in the `executors` dict in `create_cli_executor()` in `main.py`
+2. Accept `command: str = "daily_report"` in `__init__` for command switching
+3. Register it in the `executors` dict in `create_cli_executor()` in `main.py`
 
 ### External Dependencies
-- **Claude CLI** or **Gemini CLI**: Must be installed separately and available in PATH. Executes `/daily_report` command with Atlassian MCP
+- **Claude CLI** or **Gemini CLI**: Must be installed separately and available in PATH. Executes `/daily_report` or `/weekly_report` command with Atlassian MCP
 - **Slack SDK**: For posting reports to Slack channels
 
 ## Design Principles
