@@ -21,8 +21,35 @@ class TestMainWeeklyMode:
             report=sample_report_config,
             slack_token="test-token",
             slack_channel="test-channel",
+            slack_channel_weekly="weekly-channel",
             cli_type="claude",
             report_mode="weekly",
+        )
+
+    @patch("src.main.GenerateWeeklySummaryUseCase")
+    @patch("src.main.SlackAdapter")
+    @patch("src.main.ReportGenerator")
+    @patch("src.main.load_config_from_env")
+    def test_should_use_slack_channel_weekly_in_weekly_mode(
+        self,
+        mock_load_config,
+        mock_report_generator,
+        mock_slack_adapter,
+        mock_weekly_use_case_class,
+        weekly_config,
+    ):
+        # Given: report_mode가 "weekly"이고 slack_channel_weekly가 설정된 상황
+        mock_load_config.return_value = weekly_config
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = True
+        mock_weekly_use_case_class.return_value = mock_use_case
+
+        # When: main을 호출하면
+        main()
+
+        # Then: SlackAdapter에 slack_channel_weekly 값이 전달된다
+        mock_slack_adapter.assert_called_once_with(
+            token="test-token", channel="weekly-channel"
         )
 
     @patch("src.main.GenerateWeeklySummaryUseCase")

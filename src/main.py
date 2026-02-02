@@ -39,7 +39,7 @@ def main():
             raise ValueError(f"Unknown CLI type: {config.cli_type}. Supported: {list(executors.keys())}")
         cli_executor = executor_class(command="weekly_report")
         report_generator = ReportGenerator(cli_executor)
-        notifier = SlackAdapter(token=config.slack_token, channel=config.slack_channel)
+        notifier = SlackAdapter(token=config.slack_token, channel=config.slack_channel_weekly)
         use_case = GenerateWeeklySummaryUseCase(
             report_generator=report_generator,
             notifier=notifier,

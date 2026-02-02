@@ -20,6 +20,7 @@ class TestLoadConfigFromEnv:
             "REPORT_MENTION_USERS": "@홍길동 @김철수",
             "SLACK_TOKEN": "xoxb-test-token",
             "SLACK_CHANNEL": "C12345678",
+            "SLACK_CHANNEL_WEEKLY": "C99999999",
             "CLI_TYPE": "claude",
         },
         clear=True,
@@ -39,6 +40,7 @@ class TestLoadConfigFromEnv:
         assert config.report.mention_users == "@홍길동 @김철수"
         assert config.slack_token == "xoxb-test-token"
         assert config.slack_channel == "C12345678"
+        assert config.slack_channel_weekly == "C99999999"
         assert config.cli_type == "claude"
 
     @patch.dict(os.environ, {}, clear=True)
@@ -71,6 +73,7 @@ class TestLoadConfigFromEnv:
         assert config.report.mention_users == ""
         assert config.slack_token == ""
         assert config.slack_channel == ""
+        assert config.slack_channel_weekly == ""
         assert config.cli_type == "claude"
 
     @patch.dict(

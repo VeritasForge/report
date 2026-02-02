@@ -23,7 +23,7 @@ src/
 │   ├── use_cases.py            # GenerateWeeklyReportUseCase (daily mode)
 │   └── weekly_summary_use_case.py  # GenerateWeeklySummaryUseCase (weekly mode)
 └── infrastructure/             # External system adapters
-    ├── config.py               # Environment variable loading (AppConfig incl. report_mode)
+    ├── config.py               # Environment variable loading (AppConfig incl. report_mode, slack_channel_weekly)
     └── adapters/
         ├── cli_executors.py    # CLI executors (execute /daily_report or /weekly_report via command param)
         ├── report_generator.py # Report generation orchestrator
@@ -51,9 +51,10 @@ Makefile                        # Build commands (install, run, test, coverage, 
 
 **Weekly mode** (`REPORT_MODE=weekly`):
 1. `main.py` creates `CLIExecutor(command="weekly_report")` and `GenerateWeeklySummaryUseCase`
-2. `CLIExecutor` executes `/weekly_report SPACE_KEY "MENTION_USERS"` command
-3. `weekly_report.md` reads all daily pages from the week and generates a consolidated summary
-4. `GenerateWeeklySummaryUseCase` builds title (e.g., `[BE][26.01.27_Weekly]`) and sends to Slack
+2. `SlackAdapter` is initialized with `slack_channel_weekly` (separate channel from daily)
+3. `CLIExecutor` executes `/weekly_report SPACE_KEY "MENTION_USERS"` command
+4. `weekly_report.md` reads all daily pages from the week and generates a consolidated summary
+5. `GenerateWeeklySummaryUseCase` builds title (e.g., `[BE][26.01.27_Weekly]`) and sends to Slack
 
 ### CLI Plugin Architecture
 
