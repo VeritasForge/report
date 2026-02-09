@@ -94,6 +94,16 @@ REPORT_MODE=weekly uv run python -m src.main
 
 The script will then generate the report and post it to the specified Slack channel.
 
+### Cronicle Management
+
+```bash
+make cronicle-status   # Check if Cronicle is running
+make cronicle-start    # Start Cronicle and open web UI
+make cronicle-stop     # Stop Cronicle
+make cronicle-restart  # Restart Cronicle and open web UI
+make cronicle-open     # Open web UI in browser
+```
+
 ## Testing
 
 Install dev dependencies and run tests:
