@@ -63,24 +63,24 @@ CRONICLE_URL := http://localhost:3012
 
 # Check Cronicle status
 cronicle-status:
-	@sudo $(CRONICLE) status
+	@$(CRONICLE) status
 	@echo ""
 	@echo "Web UI: $(CRONICLE_URL)"
 
 # Start Cronicle server and open web UI
 cronicle-start:
-	@sudo $(CRONICLE) start
+	@$(CRONICLE) start
 	@echo ""
 	@echo "Web UI: $(CRONICLE_URL)"
 	@open $(CRONICLE_URL)
 
 # Stop Cronicle server
 cronicle-stop:
-	@sudo $(CRONICLE) stop
+	@$(CRONICLE) stop
 
 # Restart Cronicle server and open web UI
 cronicle-restart:
-	@sudo $(CRONICLE) restart
+	@$(CRONICLE) restart
 	@echo ""
 	@echo "Web UI: $(CRONICLE_URL)"
 	@open $(CRONICLE_URL)

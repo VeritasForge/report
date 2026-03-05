@@ -164,10 +164,16 @@ Installation complete.
 
 ### 2. Setup
 
-Executing the script below will: 
+Change ownership so Cronicle runs as your user (not root):
 
-> sudo /opt/cronicle/bin/control.sh setup
-> 
+```bash
+sudo chown -R $(whoami):staff /opt/cronicle
+```
+
+Then initialize storage:
+
+> /opt/cronicle/bin/control.sh setup
+>
 - Create the storage system (`/opt/cronicle/data`)
 - Create user information in the storage system's `/opt/cronicle/data/users` path
 
@@ -204,11 +210,10 @@ User information can be checked through the following file, allowing you to conf
 
 Execute the following script to start the Web UI.
 
-> sudo /opt/cronicle/bin/control.sh start
+> /opt/cronicle/bin/control.sh start
 
 ```sh
-❯ sudo /opt/cronicle/bin/control.sh start                                                                 (base) 
-Password:
+❯ /opt/cronicle/bin/control.sh start                                                                      (base)
 /opt/cronicle/bin/control.sh start: Starting up Cronicle Server...
 /opt/cronicle/bin/control.sh start: Cronicle Server started
 ```
@@ -228,7 +233,7 @@ Navigate to the Schedule tab and create events using the Add Event button.
 ```sh
 #!/bin/sh
 cd /Users/cjynim/lab/report
-su cjynim -c "uv run python -m src.main"
+uv run python -m src.main
 ```
 
 #### Weekly Report
@@ -240,5 +245,5 @@ su cjynim -c "uv run python -m src.main"
 ```sh
 #!/bin/sh
 cd /Users/cjynim/lab/report
-su cjynim -c "REPORT_MODE=weekly uv run python -m src.main"
+REPORT_MODE=weekly uv run python -m src.main
 ```
