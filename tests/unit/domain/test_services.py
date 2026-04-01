@@ -140,7 +140,8 @@ class TestFormatConfluencePageTitle:
         [
             (date(2026, 1, 27), date(2026, 1, 31), "2026.01.27 ~ 31"),
             (date(2026, 2, 3), date(2026, 2, 7), "2026.02.03 ~ 07"),
-            (date(2025, 12, 29), date(2026, 1, 2), "2025.12.29 ~ 02"),
+            (date(2025, 12, 29), date(2026, 1, 2), "2025.12.29 ~ 01.02"),
+            (date(2026, 3, 30), date(2026, 4, 3), "2026.03.30 ~ 04.03"),
         ],
     )
     def test_should_format_various_date_ranges(self, start, end, expected):

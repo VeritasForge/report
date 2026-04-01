@@ -1,6 +1,9 @@
 # Environment variables
 .env
 
+# MCP server config (contains API tokens)
+.mcp.json
+
 # IDE settings
 .idea/
 

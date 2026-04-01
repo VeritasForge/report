@@ -28,7 +28,8 @@ def format_confluence_page_title(date_range: DateRange) -> str:
     """
     start = date_range.start
     end = date_range.end
-    return f"{start.strftime('%Y.%m.%d')} ~ {end.strftime('%d')}"
+    end_fmt = end.strftime('%m.%d') if start.month != end.month else end.strftime('%d')
+    return f"{start.strftime('%Y.%m.%d')} ~ {end_fmt}"
 
 
 def convert_markdown_links_to_slack(text: str) -> str:
