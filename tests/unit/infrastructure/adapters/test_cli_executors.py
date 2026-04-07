@@ -1,5 +1,6 @@
 """CLI 실행기 테스트"""
 
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -119,6 +120,46 @@ class TestClaudeCLIExecutor:
         assert result is None
 
     @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
+    def test_should_build_command_with_report_date(self, mock_popen, executor):
+        # Given: report_date가 지정된 상황
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        # When: report_date와 함께 execute를 호출하면
+        executor.execute("MAI", "@홍길동", report_date=date(2026, 4, 6))
+
+        # Then: --date가 포함된 커맨드가 실행된다
+        expected_command = [
+            "claude", "-p",
+            '/daily_report MAI "@홍길동" --date 2026-04-06',
+            "--dangerously-skip-permissions",
+        ]
+        actual_command = mock_popen.call_args[0][0]
+        assert actual_command == expected_command
+
+    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
+    def test_should_build_command_with_report_date_without_mention_users(self, mock_popen, executor):
+        # Given: report_date만 있고 mention_users가 없는 상황
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        # When: report_date만 지정하여 execute를 호출하면
+        executor.execute("MAI", report_date=date(2026, 4, 6))
+
+        # Then: --date가 포함되고 mention_users는 없는 커맨드가 실행된다
+        expected_command = [
+            "claude", "-p",
+            "/daily_report MAI --date 2026-04-06",
+            "--dangerously-skip-permissions",
+        ]
+        actual_command = mock_popen.call_args[0][0]
+        assert actual_command == expected_command
+
+    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
     def test_should_strip_output(self, mock_popen, executor):
         # Given: 출력에 공백이 포함된 상황
         mock_process = MagicMock()
@@ -230,3 +271,19 @@ class TestGeminiCLIExecutor:
 
         # Then: None을 반환한다
         assert result is None
+
+    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
+    def test_should_build_command_with_report_date(self, mock_popen, executor):
+        # Given: report_date가 지정된 상황
+        mock_process = MagicMock()
+        mock_process.communicate.return_value = ("", "")
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        # When: report_date와 함께 execute를 호출하면
+        executor.execute("MAI", "@홍길동", report_date=date(2026, 4, 6))
+
+        # Then: --date가 포함된 커맨드가 실행된다
+        expected_command = ["gemini", "-p", '/daily_report MAI "@홍길동" --date 2026-04-06']
+        actual_command = mock_popen.call_args[0][0]
+        assert actual_command == expected_command

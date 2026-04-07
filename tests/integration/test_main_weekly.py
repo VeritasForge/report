@@ -26,6 +26,7 @@ class TestMainWeeklyMode:
             report_mode="weekly",
         )
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.GenerateWeeklySummaryUseCase")
     @patch("src.main.SlackAdapter")
     @patch("src.main.ReportGenerator")
@@ -52,6 +53,7 @@ class TestMainWeeklyMode:
             token="test-token", channel="weekly-channel"
         )
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.GenerateWeeklySummaryUseCase")
     @patch("src.main.SlackAdapter")
     @patch("src.main.ReportGenerator")
@@ -77,6 +79,7 @@ class TestMainWeeklyMode:
         mock_weekly_use_case_class.assert_called_once()
         mock_use_case.execute.assert_called_once_with(weekly_config.report)
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.GenerateWeeklySummaryUseCase")
     @patch("src.main.SlackAdapter")
     @patch("src.main.ReportGenerator")
@@ -103,6 +106,7 @@ class TestMainWeeklyMode:
         assert isinstance(call_args, ClaudeCLIExecutor)
         assert call_args._command == "weekly_report"
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.GenerateWeeklySummaryUseCase")
     @patch("src.main.SlackAdapter")
     @patch("src.main.ReportGenerator")
@@ -136,6 +140,7 @@ class TestMainWeeklyMode:
         assert isinstance(call_args, GeminiCLIExecutor)
         assert call_args._command == "weekly_report"
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.SlackAdapter")
     @patch("src.main.ReportGenerator")
     @patch("src.main.load_config_from_env")
@@ -160,6 +165,7 @@ class TestMainWeeklyMode:
         with pytest.raises(ValueError, match="Unknown CLI type"):
             main()
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.GenerateWeeklySummaryUseCase")
     @patch("src.main.SlackAdapter")
     @patch("src.main.ReportGenerator")
@@ -184,6 +190,7 @@ class TestMainWeeklyMode:
         # Then: 유스케이스가 호출되었다
         mock_use_case.execute.assert_called_once()
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.GenerateWeeklyReportUseCase")
     @patch("src.main.SlackAdapter")
     @patch("src.main.ReportGenerator")
@@ -218,6 +225,7 @@ class TestMainWeeklyMode:
         mock_daily_use_case_class.assert_called_once()
         mock_create_executor.assert_called_once_with("claude")
 
+    @patch("sys.argv", ["src.main"])
     @patch.dict(
         os.environ,
         {

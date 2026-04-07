@@ -1,6 +1,8 @@
 """main.py 통합 테스트"""
 
 import os
+import sys
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,7 +11,7 @@ from src.infrastructure.adapters.cli_executors import (
     ClaudeCLIExecutor,
     GeminiCLIExecutor,
 )
-from src.main import create_cli_executor, main
+from src.main import create_cli_executor, main, parse_args
 
 
 class TestCreateCliExecutor:
@@ -54,6 +56,7 @@ class TestCreateCliExecutor:
 class TestMain:
     """main 함수 통합 테스트"""
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.load_config_from_env")
     def test_should_exit_when_config_load_fails(self, mock_load_config):
         # Given: 설정 로드가 실패하는 상황
@@ -63,8 +66,9 @@ class TestMain:
         main()
 
         # Then: 설정 로드 후 바로 종료 (다른 호출 없음)
-        mock_load_config.assert_called_once()
+        mock_load_config.assert_called_once_with(report_date=None)
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.SlackAdapter")
     @patch("src.main.ReportGenerator")
     @patch("src.main.create_cli_executor")
@@ -103,6 +107,7 @@ class TestMain:
             token="test-token", channel="test-channel"
         )
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.GenerateWeeklyReportUseCase")
     @patch("src.main.SlackAdapter")
     @patch("src.main.ReportGenerator")
@@ -137,6 +142,7 @@ class TestMain:
         # Then: 유스케이스가 실행된다
         mock_use_case.execute.assert_called_once_with(sample_report_config)
 
+    @patch("sys.argv", ["src.main"])
     @patch("src.main.GenerateWeeklyReportUseCase")
     @patch("src.main.SlackAdapter")
     @patch("src.main.ReportGenerator")
@@ -171,6 +177,7 @@ class TestMain:
         # Then: 유스케이스가 호출되었다
         mock_use_case.execute.assert_called_once()
 
+    @patch("sys.argv", ["src.main"])
     @patch.dict(
         os.environ,
         {
@@ -202,3 +209,70 @@ class TestMain:
 
         # Then: gemini 실행기가 생성된다
         mock_create_executor.assert_called_once_with("gemini")
+
+    @patch("sys.argv", ["src.main", "--date", "2026-04-06"])
+    @patch("src.main.SlackAdapter")
+    @patch("src.main.ReportGenerator")
+    @patch("src.main.create_cli_executor")
+    @patch("src.main.load_config_from_env")
+    def test_should_pass_date_argument_to_config(
+        self,
+        mock_load_config,
+        mock_create_executor,
+        mock_report_generator,
+        mock_slack_adapter,
+        sample_report_config,
+    ):
+        # Given: --date 인자가 주어진 상황
+        from src.infrastructure.config import AppConfig
+
+        mock_config = AppConfig(
+            report=sample_report_config,
+            slack_token="test-token",
+            slack_channel="test-channel",
+            cli_type="claude",
+        )
+        mock_load_config.return_value = mock_config
+        mock_executor = MagicMock()
+        mock_create_executor.return_value = mock_executor
+        mock_generator = MagicMock()
+        mock_generator.generate.return_value = None
+        mock_report_generator.return_value = mock_generator
+
+        # When: main을 호출하면
+        main()
+
+        # Then: load_config_from_env에 report_date가 전달된다
+        mock_load_config.assert_called_once_with(report_date=date(2026, 4, 6))
+
+
+class TestParseArgs:
+    """CLI 인자 파싱 테스트"""
+
+    @patch("sys.argv", ["src.main"])
+    def test_should_default_date_to_none(self):
+        # Given: --date 인자가 없는 상황
+
+        # When: parse_args를 호출하면
+        args = parse_args()
+
+        # Then: date는 None이다
+        assert args.date is None
+
+    @patch("sys.argv", ["src.main", "--date", "2026-04-06"])
+    def test_should_parse_date_argument(self):
+        # Given: --date 인자가 있는 상황
+
+        # When: parse_args를 호출하면
+        args = parse_args()
+
+        # Then: date가 파싱된다
+        assert args.date == date(2026, 4, 6)
+
+    @patch("sys.argv", ["src.main", "--date", "invalid"])
+    def test_should_raise_error_for_invalid_date_format(self):
+        # Given: 잘못된 날짜 형식
+
+        # When/Then: parse_args를 호출하면 SystemExit이 발생한다
+        with pytest.raises(SystemExit):
+            parse_args()

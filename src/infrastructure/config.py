@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from datetime import date
 
 from dotenv import load_dotenv
 
@@ -17,7 +18,7 @@ class AppConfig:
     slack_channel_weekly: str = ""
 
 
-def load_config_from_env() -> AppConfig | None:
+def load_config_from_env(report_date: date | None = None) -> AppConfig | None:
     """환경변수에서 설정 로드. 필수 값이 없으면 None 반환."""
     load_dotenv()
 
@@ -37,6 +38,7 @@ def load_config_from_env() -> AppConfig | None:
         team_name=team_name,
         team_prefix=team_prefix,
         mention_users=mention_users,
+        report_date=report_date,
     )
 
     return AppConfig(

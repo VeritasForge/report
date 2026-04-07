@@ -1,3 +1,6 @@
+import argparse
+from datetime import date, datetime
+
 from .application.ports import CLIExecutorPort
 from .application.use_cases import GenerateWeeklyReportUseCase
 from .application.weekly_summary_use_case import GenerateWeeklySummaryUseCase
@@ -19,17 +22,33 @@ def create_cli_executor(cli_type: str) -> CLIExecutorPort:
     return executor_class()
 
 
+def parse_args() -> argparse.Namespace:
+    """CLI 인자 파싱"""
+    parser = argparse.ArgumentParser(description="Weekly Report Generator")
+    parser.add_argument(
+        "--date",
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
+        default=None,
+        help="리포트 대상 날짜 (YYYY-MM-DD). 미지정 시 오늘 날짜 사용.",
+    )
+    return parser.parse_args()
+
+
 def main():
     """
     Composition Root: 모든 의존성을 조립하고 애플리케이션을 실행
     """
+    args = parse_args()
+
     # 1. 설정 로드
-    config = load_config_from_env()
+    config = load_config_from_env(report_date=args.date)
     if config is None:
         print("Exiting due to configuration error.")
         return
 
+    report_date = config.report.report_date or date.today()
     print(f"Using CLI: {config.cli_type}")
+    print(f"Report date: {report_date.isoformat()}")
 
     if config.report_mode == "weekly":
         # weekly 전용 경로
@@ -45,7 +64,7 @@ def main():
             notifier=notifier,
         )
     else:
-        # daily 경로: 기존 코드 100% 동일
+        # daily 경로
         cli_executor = create_cli_executor(config.cli_type)
         report_generator = ReportGenerator(cli_executor)
         notifier = SlackAdapter(token=config.slack_token, channel=config.slack_channel)

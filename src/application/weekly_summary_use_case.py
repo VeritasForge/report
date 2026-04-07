@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from ..domain.models import ReportConfig
 from .ports import NotificationPort, ReportGeneratorPort
@@ -30,6 +30,7 @@ class GenerateWeeklySummaryUseCase:
 
     def _build_title(self, config: ReportConfig) -> str:
         """Slack 메인 메시지용 제목 생성 (예: [BE][26.01.27_Weekly])"""
-        formatted_date = datetime.now().strftime('%y.%m.%d')
+        report_date = config.report_date or date.today()
+        formatted_date = report_date.strftime('%y.%m.%d')
         prefix = f"[{config.team_prefix}]" if config.team_prefix else ""
         return f"{prefix}[{formatted_date}_Weekly]"

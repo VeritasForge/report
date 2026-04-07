@@ -1,6 +1,6 @@
 """Weekly Summary 유스케이스 테스트"""
 
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -80,43 +80,44 @@ class TestGenerateWeeklySummaryUseCase:
         call_args = mock_notifier.send.call_args
         assert call_args[0][1] == sample_report.main_content
 
-    @patch("src.application.weekly_summary_use_case.datetime")
     def test_should_build_title_with_weekly_suffix(
         self,
-        mock_datetime,
         use_case,
         mock_report_generator,
         mock_notifier,
-        sample_report_config,
         sample_report,
     ):
-        # Given: 팀 접두사가 있고 특정 날짜인 상황
-        mock_datetime.now.return_value = datetime(2026, 1, 27)
+        # Given: 팀 접두사가 있고 report_date가 지정된 상황
+        config = ReportConfig(
+            space_key="MAI", team_name="Backend Team",
+            team_prefix="BE", mention_users="@홍길동 @김철수",
+            report_date=date(2026, 1, 27),
+        )
         mock_report_generator.generate.return_value = sample_report
 
         # When: 유스케이스를 실행하면
-        use_case.execute(sample_report_config)
+        use_case.execute(config)
 
         # Then: "[BE][26.01.27_Weekly]" 형식의 제목이 전송된다
         call_args = mock_notifier.send.call_args
         assert call_args[0][0] == "[BE][26.01.27_Weekly]"
 
-    @patch("src.application.weekly_summary_use_case.datetime")
     def test_should_build_title_without_team_prefix(
         self,
-        mock_datetime,
         use_case,
         mock_report_generator,
         mock_notifier,
-        sample_report_config_minimal,
         sample_report,
     ):
-        # Given: 팀 접두사가 없는 상황
-        mock_datetime.now.return_value = datetime(2026, 1, 27)
+        # Given: 팀 접두사가 없고 report_date가 지정된 상황
+        config = ReportConfig(
+            space_key="MAI", team_name="", team_prefix="", mention_users="",
+            report_date=date(2026, 1, 27),
+        )
         mock_report_generator.generate.return_value = sample_report
 
         # When: 유스케이스를 실행하면
-        use_case.execute(sample_report_config_minimal)
+        use_case.execute(config)
 
         # Then: "[26.01.27_Weekly]" 형식의 제목이 전송된다 (접두사 없음)
         call_args = mock_notifier.send.call_args
@@ -140,6 +141,28 @@ class TestGenerateWeeklySummaryUseCase:
         mock_report_generator.generate.assert_called_once_with(sample_report_config)
 
 
+    def test_should_use_report_date_in_title_when_specified(
+        self,
+        use_case,
+        mock_report_generator,
+        mock_notifier,
+        sample_report,
+    ):
+        # Given: report_date가 지정된 설정
+        config = ReportConfig(
+            space_key="MAI", team_name="Backend Team",
+            team_prefix="BE", mention_users="", report_date=date(2026, 4, 6),
+        )
+        mock_report_generator.generate.return_value = sample_report
+
+        # When: 유스케이스를 실행하면
+        use_case.execute(config)
+
+        # Then: 지정된 날짜가 Weekly 제목에 반영된다
+        call_args = mock_notifier.send.call_args
+        assert call_args[0][0] == "[BE][26.04.06_Weekly]"
+
+
 class TestWeeklySummaryBuildTitle:
     """Weekly Summary 제목 생성 메서드 테스트"""
 
@@ -151,33 +174,33 @@ class TestWeeklySummaryBuildTitle:
             notifier=MagicMock(),
         )
 
-    @patch("src.application.weekly_summary_use_case.datetime")
-    def test_should_include_prefix_when_provided(
-        self, mock_datetime, use_case, sample_report_config
-    ):
+    def test_should_include_prefix_when_provided(self, use_case):
         # Given: 팀 접두사가 있는 설정
-        mock_datetime.now.return_value = datetime(2026, 1, 27)
+        config = ReportConfig(
+            space_key="MAI", team_name="Backend Team",
+            team_prefix="BE", mention_users="@홍길동 @김철수",
+            report_date=date(2026, 1, 27),
+        )
 
         # When: 제목을 생성하면
-        result = use_case._build_title(sample_report_config)
+        result = use_case._build_title(config)
 
         # Then: 접두사가 포함된 Weekly 제목이 생성된다
         assert result == "[BE][26.01.27_Weekly]"
 
-    @patch("src.application.weekly_summary_use_case.datetime")
-    def test_should_exclude_prefix_when_empty(
-        self, mock_datetime, use_case, sample_report_config_minimal
-    ):
+    def test_should_exclude_prefix_when_empty(self, use_case):
         # Given: 팀 접두사가 없는 설정
-        mock_datetime.now.return_value = datetime(2026, 1, 27)
+        config = ReportConfig(
+            space_key="MAI", team_name="", team_prefix="", mention_users="",
+            report_date=date(2026, 1, 27),
+        )
 
         # When: 제목을 생성하면
-        result = use_case._build_title(sample_report_config_minimal)
+        result = use_case._build_title(config)
 
         # Then: 접두사 없이 Weekly 제목이 생성된다
         assert result == "[26.01.27_Weekly]"
 
-    @patch("src.application.weekly_summary_use_case.datetime")
     @pytest.mark.parametrize(
         "prefix,expected_prefix_part",
         [
@@ -188,15 +211,13 @@ class TestWeeklySummaryBuildTitle:
         ],
     )
     def test_should_handle_various_prefixes(
-        self, mock_datetime, use_case, prefix, expected_prefix_part
+        self, use_case, prefix, expected_prefix_part
     ):
         # Given: 다양한 팀 접두사가 주어졌을 때
-        mock_datetime.now.return_value = datetime(2026, 1, 27)
         config = ReportConfig(
-            space_key="MAI",
-            team_name="Team",
-            team_prefix=prefix,
-            mention_users="",
+            space_key="MAI", team_name="Team",
+            team_prefix=prefix, mention_users="",
+            report_date=date(2026, 1, 27),
         )
 
         # When: 제목을 생성하면
@@ -206,15 +227,16 @@ class TestWeeklySummaryBuildTitle:
         assert result.startswith(expected_prefix_part)
         assert result.endswith("_Weekly]")
 
-    @patch("src.application.weekly_summary_use_case.datetime")
-    def test_should_format_date_correctly_in_title(
-        self, mock_datetime, use_case, sample_report_config
-    ):
+    def test_should_format_date_correctly_in_title(self, use_case):
         # Given: 특정 날짜가 주어진 상황
-        mock_datetime.now.return_value = datetime(2026, 12, 31)
+        config = ReportConfig(
+            space_key="MAI", team_name="Backend Team",
+            team_prefix="BE", mention_users="",
+            report_date=date(2026, 12, 31),
+        )
 
         # When: 제목을 생성하면
-        result = use_case._build_title(sample_report_config)
+        result = use_case._build_title(config)
 
         # Then: 날짜가 올바르게 포맷된다
         assert "[26.12.31_Weekly]" in result

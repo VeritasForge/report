@@ -19,7 +19,7 @@ class ReportGenerator:
         else:
             print(f"Executing: /daily_report {config.space_key}")
 
-        output = self._cli_executor.execute(config.space_key, config.mention_users)
+        output = self._cli_executor.execute(config.space_key, config.mention_users, config.report_date)
         if output is None:
             return None
 

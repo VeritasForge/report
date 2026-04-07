@@ -24,12 +24,11 @@ def format_confluence_page_title(date_range: DateRange) -> str:
     """
     날짜 범위를 Confluence 페이지 제목 형식으로 변환
 
-    예: DateRange(2026-01-27, 2026-01-31) -> "2026.01.27 ~ 31"
+    예: DateRange(2026-01-27, 2026-01-31) -> "2026.01.27 ~ 01.31"
     """
     start = date_range.start
     end = date_range.end
-    end_fmt = end.strftime('%m.%d') if start.month != end.month else end.strftime('%d')
-    return f"{start.strftime('%Y.%m.%d')} ~ {end_fmt}"
+    return f"{start.strftime('%Y.%m.%d')} ~ {end.strftime('%m.%d')}"
 
 
 def convert_markdown_links_to_slack(text: str) -> str:

@@ -7,6 +7,7 @@ help:
 	@echo "  make install       - Install dependencies"
 	@echo "  make lock          - Update lock file"
 	@echo "  make run           - Run the daily report generator"
+	@echo "  make run DATE=YYYY-MM-DD - Run report for a specific date"
 	@echo "  make report        - Alias for 'make run'"
 	@echo "  make weekly        - Run the weekly summary report"
 	@echo "  make clean         - Clean cache files"
@@ -31,14 +32,14 @@ lock:
 
 # Run the report generator
 run:
-	uv run python -m src.main
+	uv run python -m src.main $(if $(DATE),--date $(DATE))
 
 # Alias for run
 report: run
 
 # Run weekly report
 weekly:
-	REPORT_MODE=weekly uv run python -m src.main
+	REPORT_MODE=weekly uv run python -m src.main $(if $(DATE),--date $(DATE))
 
 # Clean cache files
 clean:

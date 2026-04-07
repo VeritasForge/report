@@ -1,6 +1,7 @@
 """Infrastructure 설정 로더 테스트"""
 
 import os
+from datetime import date
 from unittest.mock import patch
 
 import pytest
@@ -94,6 +95,39 @@ class TestLoadConfigFromEnv:
         # Then: cli_type이 gemini로 설정된다
         assert config is not None
         assert config.cli_type == "gemini"
+
+    @patch.dict(
+        os.environ,
+        {"CONFLUENCE_SPACE_KEY": "MAI"},
+        clear=True,
+    )
+    @patch("src.infrastructure.config.load_dotenv")
+    def test_should_pass_report_date_to_config(self, mock_load_dotenv):
+        # Given: report_date가 지정된 상황
+        target_date = date(2026, 4, 6)
+
+        # When: 설정을 로드하면
+        config = load_config_from_env(report_date=target_date)
+
+        # Then: ReportConfig에 report_date가 전달된다
+        assert config is not None
+        assert config.report.report_date == target_date
+
+    @patch.dict(
+        os.environ,
+        {"CONFLUENCE_SPACE_KEY": "MAI"},
+        clear=True,
+    )
+    @patch("src.infrastructure.config.load_dotenv")
+    def test_should_default_report_date_to_none(self, mock_load_dotenv):
+        # Given: report_date가 지정되지 않은 상황
+
+        # When: 설정을 로드하면
+        config = load_config_from_env()
+
+        # Then: report_date는 None이다
+        assert config is not None
+        assert config.report.report_date is None
 
     @patch.dict(
         os.environ,

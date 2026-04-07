@@ -19,6 +19,7 @@ class ReportConfig:
     team_name: str
     team_prefix: str  # 리포트 제목에 사용할 팀 접두사 (예: "BE", "FE")
     mention_users: str  # 지연/보류 시 멘션할 사용자 (예: "@홍길동 @김철수")
+    report_date: date | None = None  # 리포트 대상 날짜 (None이면 오늘)
 
 
 @dataclass

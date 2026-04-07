@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Protocol
 
 from ..domain.models import Report, ReportConfig
@@ -6,7 +7,7 @@ from ..domain.models import Report, ReportConfig
 class CLIExecutorPort(Protocol):
     """CLI 실행기 추상 인터페이스"""
 
-    def execute(self, space_key: str, mention_users: str = "") -> str | None:
+    def execute(self, space_key: str, mention_users: str = "", report_date: date | None = None) -> str | None:
         """/daily_report 커맨드를 실행하고 결과 반환"""
         ...
 

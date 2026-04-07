@@ -132,16 +132,17 @@ class TestFormatConfluencePageTitle:
         # When: 페이지 제목으로 포맷하면
         result = format_confluence_page_title(sample_date_range)
 
-        # Then: "YYYY.MM.DD ~ DD" 형식을 반환한다
-        assert result == "2026.01.27 ~ 31"
+        # Then: "YYYY.MM.DD ~ MM.DD" 형식을 반환한다
+        assert result == "2026.01.27 ~ 01.31"
 
     @pytest.mark.parametrize(
         "start,end,expected",
         [
-            (date(2026, 1, 27), date(2026, 1, 31), "2026.01.27 ~ 31"),
-            (date(2026, 2, 3), date(2026, 2, 7), "2026.02.03 ~ 07"),
+            (date(2026, 1, 27), date(2026, 1, 31), "2026.01.27 ~ 01.31"),
+            (date(2026, 2, 3), date(2026, 2, 7), "2026.02.03 ~ 02.07"),
             (date(2025, 12, 29), date(2026, 1, 2), "2025.12.29 ~ 01.02"),
             (date(2026, 3, 30), date(2026, 4, 3), "2026.03.30 ~ 04.03"),
+            (date(2026, 4, 6), date(2026, 4, 10), "2026.04.06 ~ 04.10"),
         ],
     )
     def test_should_format_various_date_ranges(self, start, end, expected):

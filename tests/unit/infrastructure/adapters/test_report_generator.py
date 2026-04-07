@@ -1,5 +1,6 @@
 """보고서 생성기 테스트"""
 
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -58,7 +59,7 @@ class TestReportGenerator:
 
         # Then: 올바른 인자로 CLI가 호출된다
         mock_cli_executor.execute.assert_called_once_with(
-            sample_report_config.space_key, sample_report_config.mention_users
+            sample_report_config.space_key, sample_report_config.mention_users, sample_report_config.report_date
         )
 
     def test_should_call_cli_without_mention_users(
@@ -72,7 +73,23 @@ class TestReportGenerator:
 
         # Then: 빈 mention_users로 CLI가 호출된다
         mock_cli_executor.execute.assert_called_once_with(
-            sample_report_config_minimal.space_key, ""
+            sample_report_config_minimal.space_key, "", None
+        )
+
+    def test_should_pass_report_date_to_cli(self, generator, mock_cli_executor):
+        # Given: report_date가 지정된 설정
+        mock_cli_executor.execute.return_value = "Report"
+        config = ReportConfig(
+            space_key="MAI", team_name="", team_prefix="BE",
+            mention_users="@홍길동", report_date=date(2026, 4, 6),
+        )
+
+        # When: generate를 호출하면
+        generator.generate(config)
+
+        # Then: report_date가 CLI에 전달된다
+        mock_cli_executor.execute.assert_called_once_with(
+            "MAI", "@홍길동", date(2026, 4, 6)
         )
 
     def test_should_strip_cli_output(self, generator, mock_cli_executor):

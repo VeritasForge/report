@@ -1,4 +1,5 @@
 import subprocess
+from datetime import date
 
 
 class ClaudeCLIExecutor:
@@ -7,18 +8,26 @@ class ClaudeCLIExecutor:
     def __init__(self, command: str = "daily_report"):
         self._command = command
 
-    def execute(self, space_key: str, mention_users: str = "") -> str | None:
+    def execute(self, space_key: str, mention_users: str = "", report_date: date | None = None) -> str | None:
         """
         커맨드를 실행합니다.
-        날짜 범위는 커맨드 파일에서 자동으로 계산됩니다.
 
         Args:
             space_key: Confluence 스페이스 키 (예: 'MAI')
             mention_users: 지연/보류 시 멘션할 사용자 (예: '@홍길동 @김철수')
+            report_date: 리포트 대상 날짜 (None이면 오늘 기준)
         """
-        prompt = f'/{self._command} {space_key} "{mention_users}"' if mention_users else f"/{self._command} {space_key}"
+        prompt = self._build_prompt(space_key, mention_users, report_date)
         command = ['claude', '-p', prompt, '--dangerously-skip-permissions']
         return self._run_command(command, cli_name='claude')
+
+    def _build_prompt(self, space_key: str, mention_users: str, report_date: date | None) -> str:
+        parts = [f"/{self._command}", space_key]
+        if mention_users:
+            parts.append(f'"{mention_users}"')
+        if report_date:
+            parts.append(f"--date {report_date.isoformat()}")
+        return " ".join(parts)
 
     def _run_command(self, command: list[str], cli_name: str) -> str | None:
         try:
@@ -52,18 +61,26 @@ class GeminiCLIExecutor:
     def __init__(self, command: str = "daily_report"):
         self._command = command
 
-    def execute(self, space_key: str, mention_users: str = "") -> str | None:
+    def execute(self, space_key: str, mention_users: str = "", report_date: date | None = None) -> str | None:
         """
         커맨드를 실행합니다.
-        날짜 범위는 커맨드 파일에서 자동으로 계산됩니다.
 
         Args:
             space_key: Confluence 스페이스 키 (예: 'MAI')
             mention_users: 지연/보류 시 멘션할 사용자 (예: '@홍길동 @김철수')
+            report_date: 리포트 대상 날짜 (None이면 오늘 기준)
         """
-        prompt = f'/{self._command} {space_key} "{mention_users}"' if mention_users else f"/{self._command} {space_key}"
+        prompt = self._build_prompt(space_key, mention_users, report_date)
         command = ['gemini', '-p', prompt]
         return self._run_command(command, cli_name='gemini')
+
+    def _build_prompt(self, space_key: str, mention_users: str, report_date: date | None) -> str:
+        parts = [f"/{self._command}", space_key]
+        if mention_users:
+            parts.append(f'"{mention_users}"')
+        if report_date:
+            parts.append(f"--date {report_date.isoformat()}")
+        return " ".join(parts)
 
     def _run_command(self, command: list[str], cli_name: str) -> str | None:
         try:

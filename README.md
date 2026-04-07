@@ -79,9 +79,13 @@ Before running the script, you need to have the following installed:
 To run the script, execute the following command from the root of the project:
 
 ```bash
-# Run daily report (default)
+# Run daily report (default - today's date)
 uv run python -m src.main
 # or: make run
+
+# Run report for a specific date
+uv run python -m src.main --date 2026-04-06
+# or: make run DATE=2026-04-06
 
 # Explicitly specify CLI
 CLI_TYPE=claude uv run python -m src.main
@@ -90,6 +94,9 @@ CLI_TYPE=gemini uv run python -m src.main
 # Run weekly report
 REPORT_MODE=weekly uv run python -m src.main
 # or: make weekly
+
+# Run weekly report for a specific week
+make weekly DATE=2026-04-06
 ```
 
 The script will then generate the report and post it to the specified Slack channel.
