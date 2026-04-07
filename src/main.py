@@ -50,7 +50,23 @@ def main():
     print(f"Using CLI: {config.cli_type}")
     print(f"Report date: {report_date.isoformat()}")
 
-    if config.report_mode == "weekly":
+    if config.report_mode == "create_page":
+        executors: dict[str, type] = {"claude": ClaudeCLIExecutor, "gemini": GeminiCLIExecutor}
+        executor_class = executors.get(config.cli_type)
+        if executor_class is None:
+            raise ValueError(f"Unknown CLI type: {config.cli_type}. Supported: {list(executors.keys())}")
+        cli_executor = executor_class(command="create_weekly_page")
+
+        args = f'{config.parent_page_id} "{",".join(config.team_members)}"'
+        result = cli_executor.execute(config.report.space_key, args, report_date=None)
+
+        if result is None:
+            print("ERROR: Failed to create weekly page.")
+        else:
+            print(f"Result: {result}")
+        return
+
+    elif config.report_mode == "weekly":
         # weekly 전용 경로
         executors: dict[str, type] = {"claude": ClaudeCLIExecutor, "gemini": GeminiCLIExecutor}
         executor_class = executors.get(config.cli_type)
