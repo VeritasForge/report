@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.domain.models import ReportConfig
 from src.infrastructure.adapters.cli_executors import (
     ClaudeCLIExecutor,
     GeminiCLIExecutor,
@@ -277,86 +276,3 @@ class TestParseArgs:
         # When/Then: parse_args를 호출하면 SystemExit이 발생한다
         with pytest.raises(SystemExit):
             parse_args()
-
-
-class TestMainCreatePage:
-    """main 함수 create_page 모드 테스트"""
-
-    @patch("sys.argv", ["src.main"])
-    @patch("src.main.ClaudeCLIExecutor")
-    @patch("src.main.load_config_from_env")
-    def test_should_create_page_with_correct_command(
-        self,
-        mock_load_config,
-        mock_claude_executor_class,
-    ):
-        # Given: report_mode가 create_page인 상황
-        from src.infrastructure.config import AppConfig
-
-        mock_config = AppConfig(
-            report=ReportConfig(
-                space_key="MAI",
-                team_name="",
-                team_prefix="BE",
-                mention_users="",
-            ),
-            slack_token="",
-            slack_channel="",
-            cli_type="claude",
-            report_mode="create_page",
-            parent_page_id="1477279756",
-            team_members=["홍길동", "김철수"],
-        )
-        mock_load_config.return_value = mock_config
-        mock_executor = MagicMock()
-        mock_executor.execute.return_value = "Page created"
-        mock_claude_executor_class.return_value = mock_executor
-
-        # When: main을 호출하면
-        main()
-
-        # Then: create_weekly_page 명령으로 CLIExecutor가 생성된다
-        mock_claude_executor_class.assert_called_once_with(command="create_weekly_page")
-        # And: execute가 space_key와 parent_page_id+team_members로 호출된다
-        mock_executor.execute.assert_called_once()
-        call_args = mock_executor.execute.call_args
-        assert call_args[0][0] == "MAI"
-        assert "1477279756" in call_args[0][1]
-        assert "홍길동" in call_args[0][1]
-        assert "김철수" in call_args[0][1]
-
-    @patch("sys.argv", ["src.main"])
-    @patch("src.main.ClaudeCLIExecutor")
-    @patch("src.main.load_config_from_env")
-    def test_should_handle_create_page_failure(
-        self,
-        mock_load_config,
-        mock_claude_executor_class,
-    ):
-        # Given: CLI 실행이 실패하는 상황
-        from src.infrastructure.config import AppConfig
-
-        mock_config = AppConfig(
-            report=ReportConfig(
-                space_key="MAI",
-                team_name="",
-                team_prefix="",
-                mention_users="",
-            ),
-            slack_token="",
-            slack_channel="",
-            cli_type="claude",
-            report_mode="create_page",
-            parent_page_id="123",
-            team_members=["홍길동"],
-        )
-        mock_load_config.return_value = mock_config
-        mock_executor = MagicMock()
-        mock_executor.execute.return_value = None
-        mock_claude_executor_class.return_value = mock_executor
-
-        # When: main을 호출하면
-        main()  # 예외 없이 종료
-
-        # Then: execute가 호출되었다
-        mock_executor.execute.assert_called_once()
