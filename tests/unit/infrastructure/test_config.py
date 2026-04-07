@@ -147,45 +147,6 @@ class TestLoadConfigFromEnv:
         mock_load_dotenv.assert_called_once()
 
 
-    @patch.dict(
-        os.environ,
-        {
-            "CONFLUENCE_SPACE_KEY": "MAI",
-            "PAGE_TEAM_MEMBERS": "홍길동, 김철수, 이영희",
-            "CONFLUENCE_PARENT_PAGE_ID": "1477279756",
-        },
-        clear=True,
-    )
-    @patch("src.infrastructure.config.load_dotenv")
-    def test_should_load_team_members_from_env(self, mock_load_dotenv):
-        # Given: PAGE_TEAM_MEMBERS가 쉼표 구분으로 설정된 상황
-
-        # When: 설정을 로드하면
-        config = load_config_from_env()
-
-        # Then: team_members가 리스트로 파싱된다
-        assert config is not None
-        assert config.team_members == ["홍길동", "김철수", "이영희"]
-        assert config.parent_page_id == "1477279756"
-
-    @patch.dict(
-        os.environ,
-        {"CONFLUENCE_SPACE_KEY": "MAI"},
-        clear=True,
-    )
-    @patch("src.infrastructure.config.load_dotenv")
-    def test_should_default_team_members_to_empty_list(self, mock_load_dotenv):
-        # Given: PAGE_TEAM_MEMBERS가 없는 상황
-
-        # When: 설정을 로드하면
-        config = load_config_from_env()
-
-        # Then: team_members는 빈 리스트, parent_page_id는 빈 문자열
-        assert config is not None
-        assert config.team_members == []
-        assert config.parent_page_id == ""
-
-
 class TestAppConfig:
     """AppConfig 데이터클래스 테스트"""
 

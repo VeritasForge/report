@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 
 from dotenv import load_dotenv
@@ -16,8 +16,6 @@ class AppConfig:
     cli_type: str
     report_mode: str = "daily"
     slack_channel_weekly: str = ""
-    parent_page_id: str = ""
-    team_members: list[str] = field(default_factory=list)
 
 
 def load_config_from_env(report_date: date | None = None) -> AppConfig | None:
@@ -35,10 +33,6 @@ def load_config_from_env(report_date: date | None = None) -> AppConfig | None:
     cli_type = os.environ.get("CLI_TYPE", "claude")
     report_mode = os.environ.get("REPORT_MODE", "daily")
 
-    parent_page_id = os.environ.get("CONFLUENCE_PARENT_PAGE_ID", "")
-    team_members_str = os.environ.get("PAGE_TEAM_MEMBERS", "")
-    team_members = [m.strip() for m in team_members_str.split(",") if m.strip()]
-
     report_config = ReportConfig(
         space_key=space_key,
         team_name=team_name,
@@ -54,6 +48,4 @@ def load_config_from_env(report_date: date | None = None) -> AppConfig | None:
         slack_channel_weekly=os.environ.get("SLACK_CHANNEL_WEEKLY", ""),
         cli_type=cli_type,
         report_mode=report_mode,
-        parent_page_id=parent_page_id,
-        team_members=team_members,
     )
