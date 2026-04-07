@@ -17,3 +17,6 @@ __pycache__/
 # Coverage
 .coverage
 htmlcov/
+
+# Docs
+docs/
