@@ -144,3 +144,53 @@ class TestParseOutput:
 
         # Then: thread_tickets는 None이다
         assert result.thread_tickets is None
+
+    def test_should_extract_report_from_output_with_intermediate_text(self, generator):
+        # Given: 중간 분석 텍스트가 포함된 출력
+        output = (
+            "JIRA 티켓 정보를 확인했습니다.\n\n"
+            "**04.09 데이터 정리:**\n| 팀원 | Done |\n\n"
+            "📊 일정 요약\n\n• ✅ 작업 완료 - 김철수"
+        )
+
+        # When: _parse_output을 호출하면
+        result = generator._parse_output(output)
+
+        # Then: 리포트 시작점부터만 추출된다
+        assert result.main_content == "📊 일정 요약\n\n• ✅ 작업 완료 - 김철수"
+
+    def test_should_extract_report_with_bold_marker(self, generator):
+        # Given: Bold 마커(*📊 일정 요약*)가 포함된 출력
+        output = (
+            "분석하겠습니다.\n\n"
+            "*📊 일정 요약*\n\n• ✅ 작업 완료"
+        )
+
+        # When: _parse_output을 호출하면
+        result = generator._parse_output(output)
+
+        # Then: Bold 마커부터 추출된다
+        assert result.main_content == "*📊 일정 요약*\n\n• ✅ 작업 완료"
+
+    def test_should_extract_report_with_slack_emoji_marker(self, generator):
+        # Given: 슬랙 이모지 형식(:bar_chart:)이 포함된 출력
+        output = (
+            "중간 분석 내용\n\n"
+            ":bar_chart: 일정 요약\n\n• ✅ 작업 완료"
+        )
+
+        # When: _parse_output을 호출하면
+        result = generator._parse_output(output)
+
+        # Then: 슬랙 이모지 마커부터 추출된다
+        assert result.main_content == ":bar_chart: 일정 요약\n\n• ✅ 작업 완료"
+
+    def test_should_return_full_output_when_no_marker_found(self, generator):
+        # Given: 마커가 없는 출력 (이미 깔끔한 리포트)
+        output = "깔끔한 리포트 내용"
+
+        # When: _parse_output을 호출하면
+        result = generator._parse_output(output)
+
+        # Then: 전체 출력이 그대로 반환된다
+        assert result.main_content == "깔끔한 리포트 내용"

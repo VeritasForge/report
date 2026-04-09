@@ -27,7 +27,20 @@ class ReportGenerator:
         return self._parse_output(output)
 
     def _parse_output(self, output: str) -> Report:
-        """CLI 출력을 Report 객체로 파싱"""
-        # daily_report.md의 출력 형식에 맞게 파싱
-        # 출력은 슬랙 호환 형식으로 제공됨
-        return Report(main_content=output.strip())
+        """CLI 출력을 Report 객체로 파싱
+
+        CLI 출력에서 최종 리포트만 추출합니다.
+        리포트는 '📊 일정 요약' 또는 ':bar_chart: 일정 요약'으로 시작합니다.
+        중간 분석 과정이 포함된 경우 리포트 시작점부터만 추출합니다.
+        """
+        content = output.strip()
+        report_markers = ["*\U0001f4ca 일정 요약*", "*:bar_chart: 일정 요약*",
+                          "\U0001f4ca 일정 요약", ":bar_chart: 일정 요약",
+                          "*\U0001f4ca 주간 요약", "*:bar_chart: 주간 요약"]
+
+        for marker in report_markers:
+            idx = content.find(marker)
+            if idx != -1:
+                return Report(main_content=content[idx:].strip())
+
+        return Report(main_content=content)
