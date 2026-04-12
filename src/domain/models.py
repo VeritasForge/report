@@ -27,3 +27,10 @@ class Report:
     """생성된 보고서"""
     main_content: str
     thread_tickets: str | None = None
+
+
+@dataclass(frozen=True)
+class WeeklyPageConfig:
+    """주간 페이지 자동 생성 설정"""
+    space_key: str
+    parent_page_id: str

@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from src.domain.models import DateRange, Report, ReportConfig
+from src.domain.models import DateRange, Report, ReportConfig, WeeklyPageConfig
 
 
 @pytest.fixture
@@ -50,4 +50,13 @@ def sample_report_with_tickets() -> Report:
     return Report(
         main_content="# Daily Report\n\n- Task 1 완료\n- Task 2 진행 중",
         thread_tickets="[TICKET-123](https://jira.example.com/TICKET-123) Fix bug",
+    )
+
+
+@pytest.fixture
+def sample_weekly_page_config() -> WeeklyPageConfig:
+    """테스트용 주간 페이지 설정"""
+    return WeeklyPageConfig(
+        space_key="MAI",
+        parent_page_id="1477279756",
     )

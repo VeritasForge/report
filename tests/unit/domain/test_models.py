@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from src.domain.models import DateRange, Report, ReportConfig
+from src.domain.models import DateRange, Report, ReportConfig, WeeklyPageConfig
 
 
 class TestDateRange:
@@ -118,3 +118,27 @@ class TestReport:
 
         # Then: 속성이 수정된다
         assert sample_report.main_content == new_content
+
+
+class TestWeeklyPageConfig:
+    """주간 페이지 생성 설정 테스트"""
+
+    def test_should_create_config_with_required_fields(self):
+        # Given: 필수 필드가 주어졌을 때
+        # When: WeeklyPageConfig를 생성하면
+        config = WeeklyPageConfig(
+            space_key="MAI",
+            parent_page_id="1477279756",
+        )
+
+        # Then: 필드가 올바르게 설정된다
+        assert config.space_key == "MAI"
+        assert config.parent_page_id == "1477279756"
+
+    def test_should_be_frozen(self):
+        # Given: WeeklyPageConfig가 생성되었을 때
+        config = WeeklyPageConfig(space_key="MAI", parent_page_id="123")
+
+        # When/Then: 필드 수정을 시도하면 에러가 발생한다
+        with pytest.raises(AttributeError):
+            config.space_key = "OTHER"
