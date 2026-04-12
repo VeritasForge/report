@@ -26,3 +26,27 @@ class NotificationPort(Protocol):
     def send(self, message: str, thread_message: str | None = None) -> None:
         """메시지 전송"""
         ...
+
+
+class ConfluencePort(Protocol):
+    """Confluence 페이지 접근 추상 인터페이스"""
+
+    def get_page_by_title(self, space_key: str, title: str) -> dict | None:
+        """제목으로 페이지 조회. 없으면 None 반환."""
+        ...
+
+    def get_page_content(self, page_id: str) -> str:
+        """페이지의 storage format HTML 조회"""
+        ...
+
+    def create_page(self, space_key: str, title: str, content: str, parent_id: str) -> str:
+        """새 페이지 생성. 생성된 페이지 URL 반환."""
+        ...
+
+
+class PageTransformerPort(Protocol):
+    """페이지 HTML 변환 추상 인터페이스"""
+
+    def transform(self, html: str, old_dates: list[str], new_dates: list[str]) -> str:
+        """이전 주 HTML을 새 주 형식으로 변환"""
+        ...
