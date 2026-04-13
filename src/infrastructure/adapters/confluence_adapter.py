@@ -1,13 +1,16 @@
 """Confluence REST API 어댑터"""
 
+import requests
 from atlassian import Confluence
 
 
 class ConfluenceAdapter:
-    """atlassian-python-api를 사용한 Confluence 페이지 접근"""
+    """atlassian-python-api + REST API v2를 사용한 Confluence 페이지 접근"""
 
     def __init__(self, url: str, user: str, token: str):
         self.client = Confluence(url=url, username=user, password=token)
+        self._base_url = url.rstrip("/")
+        self._auth = (user, token)
 
     def get_page_by_title(self, space_key: str, title: str) -> dict | None:
         """제목으로 페이지 조회. 없으면 None 반환."""
@@ -18,17 +21,43 @@ class ConfluenceAdapter:
         page = self.client.get_page_by_id(page_id, expand="body.storage")
         return page["body"]["storage"]["value"]
 
+    def get_space_id(self, space_key: str) -> str:
+        """space key로 space ID(숫자) 조회 (v2 API용)"""
+        resp = requests.get(
+            f"{self._base_url}/api/v2/spaces?keys={space_key}",
+            auth=self._auth,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        results = resp.json().get("results", [])
+        if not results:
+            raise ValueError(f"Space not found: {space_key}")
+        return results[0]["id"]
+
     def create_page(
         self, space_key: str, title: str, content: str, parent_id: str
     ) -> str:
-        """새 페이지 생성. 생성된 페이지 URL 반환."""
-        result = self.client.create_page(
-            space=space_key,
-            title=title,
-            body=content,
-            parent_id=parent_id,
-            representation="storage",
+        """Live Page로 새 페이지 생성 (v2 API). 생성된 페이지 URL 반환."""
+        space_id = self.get_space_id(space_key)
+
+        payload = {
+            "spaceId": space_id,
+            "title": title,
+            "parentId": parent_id,
+            "status": "current",
+            "body": {
+                "representation": "storage",
+                "value": content,
+            },
+        }
+
+        resp = requests.post(
+            f"{self._base_url}/api/v2/pages",
+            json=payload,
+            auth=self._auth,
+            timeout=60,
         )
-        base = result["_links"]["base"]
-        webui = result["_links"]["webui"]
-        return f"{base}{webui}"
+        resp.raise_for_status()
+        result = resp.json()
+        page_id = result["id"]
+        return f"{self._base_url}/spaces/{space_key}/pages/{page_id}/{title}"
