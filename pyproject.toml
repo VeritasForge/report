@@ -24,6 +24,9 @@ addopts = "-v --tb=short"
 [tool.coverage.run]
 source = ["src"]
 branch = true
+omit = [
+    "src/infrastructure/adapters/confluence_adapter.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [

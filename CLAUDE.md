@@ -152,6 +152,9 @@ Python 3.12+ 스타일 사용:
 3. **Implement**: 최소한의 구현
 4. **Refine**: 타입 안전성 및 규약 준수 확인
 
+### External API Verification
+외부 API(Confluence, Slack, JIRA 등) 호출 코드 작성 시, 구현 전에 반드시 Context7 또는 공식 문서로 request/response 스펙을 확인할 것. 가정으로 payload를 작성하지 않는다.
+
 ### Deep Thinking
 복잡한 분석이 필요한 경우 `sequentialthinking` MCP 도구를 사용합니다.
 
