@@ -1,6 +1,8 @@
 """Confluence 페이지 HTML 변환 어댑터"""
 
+import re
 from copy import deepcopy
+from html import unescape as _html_unescape
 
 from lxml import etree
 
@@ -11,12 +13,27 @@ NSMAP = {"ac": AC_NS, "ri": RI_NS}
 NS_WRAPPER_OPEN = f'<root xmlns:ac="{AC_NS}" xmlns:ri="{RI_NS}">'
 NS_WRAPPER_CLOSE = "</root>"
 
+# XML 표준 엔티티 (unescape하면 XML이 깨지므로 보존)
+_XML_ENTITY_NAMES = frozenset({"amp", "lt", "gt", "quot", "apos"})
+
+
+def _unescape_html_entities(text: str) -> str:
+    """HTML named entities를 유니코드로 변환 (XML 표준 엔티티 &amp; 등은 보존)"""
+    def _replace(match: re.Match) -> str:
+        name = match.group(1)
+        if name in _XML_ENTITY_NAMES:
+            return match.group(0)
+        return _html_unescape(match.group(0))
+    return re.sub(r"&([a-zA-Z]+);", _replace, text)
+
 
 class PageTransformer:
     """Confluence storage format HTML을 새 주간 페이지로 변환"""
 
     def transform(self, html: str, old_dates: list[str], new_dates: list[str]) -> str:
         """이전 주 HTML을 새 주 형식으로 변환"""
+        # HTML 엔티티(&rarr;, &nbsp; 등)를 유니코드로 변환 (XML 표준 엔티티 보존)
+        html = _unescape_html_entities(html)
         wrapped = f"{NS_WRAPPER_OPEN}{html}{NS_WRAPPER_CLOSE}"
         root = etree.fromstring(wrapped.encode("utf-8"))
 
