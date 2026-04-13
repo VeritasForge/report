@@ -45,6 +45,7 @@ class ConfluenceAdapter:
             "title": title,
             "parentId": parent_id,
             "status": "current",
+            "subtype": "live",
             "body": {
                 "representation": "storage",
                 "value": content,
