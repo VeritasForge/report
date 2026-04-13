@@ -246,6 +246,112 @@ class TestMain:
         mock_load_config.assert_called_once_with(report_date=date(2026, 4, 6))
 
 
+class TestMainCreatePageMode:
+    """create_page 모드 통합 테스트"""
+
+    @patch("sys.argv", ["src.main"])
+    @patch("src.main.load_config_from_env")
+    def test_should_exit_when_confluence_credentials_missing(self, mock_load_config):
+        # Given: create_page 모드이지만 Confluence 인증 정보가 없는 상황
+        from src.infrastructure.config import AppConfig
+        from src.domain.models import ReportConfig
+
+        mock_config = AppConfig(
+            report=ReportConfig(space_key="MAI", team_name="", team_prefix="", mention_users=""),
+            slack_token="",
+            slack_channel="",
+            cli_type="claude",
+            report_mode="create_page",
+            confluence_url="",
+            confluence_user="",
+            confluence_token="",
+        )
+        mock_load_config.return_value = mock_config
+
+        # When: main을 호출하면
+        main()
+
+        # Then: 설정 로드 후 인증 오류로 종료 (use_case 실행 없음)
+        mock_load_config.assert_called_once()
+
+    @patch("sys.argv", ["src.main"])
+    @patch("src.main.load_config_from_env")
+    def test_should_execute_create_page_use_case_when_credentials_present(
+        self, mock_load_config
+    ):
+        # Given: create_page 모드이고 Confluence 인증 정보가 있는 상황
+        from src.infrastructure.config import AppConfig
+        from src.domain.models import ReportConfig
+
+        mock_config = AppConfig(
+            report=ReportConfig(space_key="MAI", team_name="", team_prefix="", mention_users=""),
+            slack_token="",
+            slack_channel="",
+            cli_type="claude",
+            report_mode="create_page",
+            confluence_url="https://example.atlassian.net",
+            confluence_user="user@example.com",
+            confluence_token="token123",
+            parent_page_id="111222",
+        )
+        mock_load_config.return_value = mock_config
+
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = True
+
+        with patch("src.infrastructure.adapters.confluence_adapter.ConfluenceAdapter") as mock_confluence_cls, \
+             patch("src.infrastructure.adapters.page_transformer.PageTransformer") as mock_transformer_cls, \
+             patch("src.application.create_page_use_case.CreateWeeklyPageUseCase") as mock_use_case_cls:
+            mock_use_case_cls.return_value = mock_use_case
+
+            # When: main을 호출하면
+            main()
+
+            # Then: ConfluenceAdapter, PageTransformer, CreateWeeklyPageUseCase가 생성되고 실행된다
+            mock_confluence_cls.assert_called_once_with(
+                url="https://example.atlassian.net",
+                user="user@example.com",
+                token="token123",
+            )
+            mock_transformer_cls.assert_called_once()
+            mock_use_case.execute.assert_called_once()
+
+    @patch("sys.argv", ["src.main"])
+    @patch("src.main.load_config_from_env")
+    def test_should_print_error_when_create_page_fails(self, mock_load_config, capsys):
+        # Given: create_page 모드이고 실행이 실패하는 상황
+        from src.infrastructure.config import AppConfig
+        from src.domain.models import ReportConfig
+
+        mock_config = AppConfig(
+            report=ReportConfig(space_key="MAI", team_name="", team_prefix="", mention_users=""),
+            slack_token="",
+            slack_channel="",
+            cli_type="claude",
+            report_mode="create_page",
+            confluence_url="https://example.atlassian.net",
+            confluence_user="user@example.com",
+            confluence_token="token123",
+            parent_page_id="111222",
+        )
+        mock_load_config.return_value = mock_config
+
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = False
+
+        with patch("src.infrastructure.adapters.confluence_adapter.ConfluenceAdapter"), \
+             patch("src.infrastructure.adapters.page_transformer.PageTransformer"), \
+             patch("src.application.create_page_use_case.CreateWeeklyPageUseCase") as mock_use_case_cls:
+            mock_use_case_cls.return_value = mock_use_case
+
+            # When: main을 호출하면
+            main()
+
+            # Then: 에러 메시지가 출력된다
+            captured = capsys.readouterr()
+            assert "ERROR: Failed to create weekly page." in captured.out
+
+
 class TestParseArgs:
     """CLI 인자 파싱 테스트"""
 

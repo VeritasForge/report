@@ -193,6 +193,184 @@ class TestPageTransformerDynamicRowspan:
         assert "Ongoing work" in progress_text
 
 
+class TestPageTransformerEdgeCases:
+    """에지 케이스 및 오류 처리 테스트"""
+
+    def test_should_raise_value_error_when_no_tbody(self):
+        # Given: <tbody>가 없는 HTML
+        html_no_tbody = '<p>No table here</p>'
+        transformer = PageTransformer()
+
+        # When/Then: transform을 호출하면 ValueError가 발생한다
+        with pytest.raises(ValueError, match="테이블을 찾을 수 없습니다"):
+            transformer.transform(html_no_tbody, old_dates=[], new_dates=[])
+
+    def test_should_raise_value_error_when_only_header_row(self):
+        # Given: 헤더 행만 있고 데이터 행이 없는 HTML
+        html_header_only = (
+            '<table><tbody>'
+            '<tr><th><p>Name</p></th><th><p>Date</p></th>'
+            '<th><p>Progress</p></th><th><p>Notifications</p></th></tr>'
+            '</tbody></table>'
+        )
+        transformer = PageTransformer()
+
+        # When/Then: transform을 호출하면 ValueError가 발생한다
+        with pytest.raises(ValueError, match="테이블에 데이터 행이 없습니다"):
+            transformer.transform(html_header_only, old_dates=[], new_dates=[])
+
+    def test_should_handle_row_without_rowspan_in_identify_member_blocks(self):
+        # Given: rowspan 없는 행들이 포함된 HTML (각 행이 독립 블록으로 처리)
+        # rowspan이 없으면 _identify_member_blocks에서 i += 1 경로(line 58)가 실행됨
+        from lxml import etree as _etree
+
+        transformer = PageTransformer()
+
+        # 직접 _identify_member_blocks 호출로 커버리지 확보
+        row1 = _etree.fromstring(
+            '<tr><td><p>04.06</p></td><td><p>Progress</p></td><td><p>Notes</p></td></tr>'
+        )
+        row2 = _etree.fromstring(
+            '<tr><td><p>04.07</p></td><td><p>Progress</p></td><td><p>Notes</p></td></tr>'
+        )
+
+        # When: rowspan 없는 행 리스트로 _identify_member_blocks를 호출하면
+        blocks = transformer._identify_member_blocks([row1, row2])
+
+        # Then: rowspan 없는 행은 블록으로 추가되지 않고 건너뛴다 (i += 1 경로)
+        assert blocks == []
+
+    def test_should_return_empty_list_when_progress_cell_has_no_ul(self):
+        # Given: Progress 셀에 <ul>이 없는 HTML
+        html_no_ul = (
+            '<table><tbody>'
+            '<tr><th><p>Name</p></th><th><p>Date</p></th>'
+            '<th><p>Progress</p></th><th><p>Notifications</p></th></tr>'
+            '<tr><td rowspan="1"><p>@User</p></td>'
+            '<td><p>04.06</p></td>'
+            '<td><p>No list here</p></td>'
+            '<td><p></p></td></tr>'
+            '</tbody></table>'
+        )
+        transformer = PageTransformer()
+
+        # When: transform을 호출하면 (ul 없는 경우 빈 리스트로 처리)
+        result = transformer.transform(
+            html_no_ul,
+            old_dates=["04.06"],
+            new_dates=["04.13"],
+        )
+
+        # Then: 예외 없이 변환되고 날짜가 바뀐다
+        assert "04.13" in result
+
+    def test_should_skip_carryover_when_no_items(self):
+        # Given: 금요일 행의 Doing/ToDo에 항목이 없는 HTML (이월할 게 없음)
+        html_empty_doing_todo = (
+            '<table><tbody>'
+            '<tr><th><p>Name</p></th><th><p>Date</p></th>'
+            '<th><p>Progress</p></th><th><p>Notifications</p></th></tr>'
+            '<tr><td rowspan="1"><p>@User</p></td>'
+            '<td><p>04.06</p></td>'
+            '<td><ul>'
+            '<li><p>Done</p><ul><li><p>Completed Task</p></li></ul></li>'
+            '<li><p>Doing</p></li>'
+            '<li><p>ToDo</p></li>'
+            '</ul></td>'
+            '<td><p></p></td></tr>'
+            '</tbody></table>'
+        )
+        transformer = PageTransformer()
+
+        # When: transform을 호출하면 (이월 항목 없음)
+        result = transformer.transform(
+            html_empty_doing_todo,
+            old_dates=["04.06"],
+            new_dates=["04.13"],
+        )
+
+        # Then: 예외 없이 변환되고 이월 항목이 없다
+        assert "Completed Task" not in result
+        assert "04.13" in result
+
+    def test_should_skip_insert_when_todo_ul_is_missing_after_reset(self):
+        # Given: _insert_carryover_to_todo에서 ul이 None인 경우를 간접 테스트
+        # PageTransformer._insert_carryover_to_todo를 직접 호출하여 ul=None 경계 커버
+        from lxml import etree as _etree
+
+        transformer = PageTransformer()
+        # ul이 없는 progress_cell 생성
+        progress_cell = _etree.fromstring('<td><p>Empty</p></td>')
+        items = [_etree.fromstring('<li><p>CarryItem</p></li>')]
+
+        # When: _insert_carryover_to_todo를 호출하면 (ul=None이므로 바로 return)
+        transformer._insert_carryover_to_todo(progress_cell, items)
+
+        # Then: 예외 없이 종료되고 셀은 변경되지 않는다
+        assert progress_cell.find("ul") is None
+
+    def test_should_skip_date_replace_when_p_text_not_in_date_map(self):
+        # Given: Date 셀의 <p> 텍스트가 date_map에 없는 경우 (line 66 False 브랜치)
+        html = (
+            '<table><tbody>'
+            '<tr><th><p>Name</p></th><th><p>Date</p></th>'
+            '<th><p>Progress</p></th><th><p>Notifications</p></th></tr>'
+            '<tr><td rowspan="1"><p>@User</p></td>'
+            '<td><p>99.99</p></td>'
+            '<td><ul><li><p>Done</p></li><li><p>Doing</p></li><li><p>ToDo</p></li></ul></td>'
+            '<td><p></p></td></tr>'
+            '</tbody></table>'
+        )
+        transformer = PageTransformer()
+
+        # When: date_map에 없는 날짜가 포함된 HTML을 변환하면
+        result = transformer.transform(html, old_dates=["04.06"], new_dates=["04.13"])
+
+        # Then: 기존 날짜 텍스트가 그대로 유지된다
+        assert "99.99" in result
+
+    def test_should_skip_extract_when_li_p_has_no_text(self):
+        # Given: Doing/ToDo li의 <p>에 텍스트가 없는 경우 (line 123 False 브랜치)
+        from lxml import etree as _etree
+
+        transformer = PageTransformer()
+        # <p> 텍스트가 None인 li 포함
+        progress_cell = _etree.fromstring(
+            '<td><ul>'
+            '<li><p></p></li>'
+            '<li><p>Doing</p><ul><li><p>Task X</p></li></ul></li>'
+            '</ul></td>'
+        )
+
+        # When: _extract_doing_todo_items를 호출하면
+        items = transformer._extract_doing_todo_items(progress_cell)
+
+        # Then: 텍스트 없는 li는 건너뛰고 Doing 항목만 추출된다
+        assert len(items) == 1
+
+    def test_should_skip_insert_when_no_todo_label_in_ul(self):
+        # Given: ul에 "ToDo" 라벨이 없는 progress_cell (line 153 False 브랜치)
+        from lxml import etree as _etree
+
+        transformer = PageTransformer()
+        progress_cell = _etree.fromstring(
+            '<td><ul>'
+            '<li><p>Done</p></li>'
+            '<li><p>Doing</p></li>'
+            '</ul></td>'
+        )
+        items = [_etree.fromstring('<li><p>CarryItem</p></li>')]
+
+        # When: _insert_carryover_to_todo를 호출하면 (ToDo 라벨 없음)
+        transformer._insert_carryover_to_todo(progress_cell, items)
+
+        # Then: 예외 없이 종료되고 새 sub_ul이 생성되지 않는다
+        # (Done, Doing li에는 ul이 없음)
+        ul = progress_cell.find("ul")
+        for li in ul.findall("li"):
+            assert li.find("ul") is None
+
+
 class TestPageTransformerNamespace:
     """네임스페이스 전처리 테스트"""
 
