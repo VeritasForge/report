@@ -59,6 +59,12 @@ Before running the script, you need to have the following installed:
 
     # Report Mode
     REPORT_MODE="daily"  # Optional, "daily" (default) or "weekly"
+
+    # Confluence API Configuration (for create_page mode)
+    CONFLUENCE_URL="https://your-instance.atlassian.net"
+    CONFLUENCE_USER="your-email@company.com"
+    CONFLUENCE_TOKEN="your-api-token"
+    PARENT_PAGE_ID="your-parent-page-id"
     ```
 
     *   `SLACK_TOKEN`: Your Slack bot token with `chat:write` permission.
@@ -70,6 +76,10 @@ Before running the script, you need to have the following installed:
     *   `REPORT_MENTION_USERS`: (Optional) Users to mention when there are delayed or on-hold items.
     *   `CLI_TYPE`: (Optional) CLI to use for report generation. Supported values: `claude` (default), `gemini`.
     *   `REPORT_MODE`: (Optional) Report mode. `daily` (default) generates a single day report, `weekly` generates a weekly summary.
+    *   `CONFLUENCE_URL`: (Required for create_page mode) Your Confluence instance URL.
+    *   `CONFLUENCE_USER`: (Required for create_page mode) Your Confluence user email.
+    *   `CONFLUENCE_TOKEN`: (Required for create_page mode) Your Confluence API token.
+    *   `PARENT_PAGE_ID`: (Required for create_page mode) The parent page ID where weekly pages are created.
 
 3.  **Configure Report Commands:**
     The report generation logic is defined in `.claude/commands/daily_report.md` (daily mode) and `.claude/commands/weekly_report.md` (weekly mode). These commands are automatically executed by the CLI with the calculated date range.
@@ -97,6 +107,13 @@ REPORT_MODE=weekly uv run python -m src.main
 
 # Run weekly report for a specific week
 make weekly DATE=2026-04-06
+
+# Create next week's Confluence page
+make create-page
+# or: REPORT_MODE=create_page uv run python -m src.main
+
+# Create page for a specific week
+make create-page DATE=2026-04-13
 ```
 
 The script will then generate the report and post it to the specified Slack channel.
@@ -253,4 +270,16 @@ uv run python -m src.main
 #!/bin/sh
 cd /Users/cjynim/lab/report
 REPORT_MODE=weekly uv run python -m src.main
+```
+
+#### Create Weekly Page
+
+- **Title**: `Create Weekly Page`
+- **Timing**: Monday, 07:00, Asia/Seoul
+- **Plugin**: Shell Script
+- **Script**:
+```sh
+#!/bin/sh
+cd /Users/cjynim/lab/report
+REPORT_MODE=create_page uv run python -m src.main
 ```
