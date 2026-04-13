@@ -9,7 +9,10 @@ class ConfluenceAdapter:
 
     def __init__(self, url: str, user: str, token: str):
         self.client = Confluence(url=url, username=user, password=token)
-        self._base_url = url.rstrip("/")
+        # v2 API는 /wiki 경로가 필요. atlassian-python-api는 자체적으로 /wiki를 추가하지만
+        # requests 직접 호출 시에는 명시적으로 포함해야 함.
+        base = url.rstrip("/")
+        self._v2_base_url = base if base.endswith("/wiki") else f"{base}/wiki"
         self._auth = (user, token)
 
     def get_page_by_title(self, space_key: str, title: str) -> dict | None:
@@ -24,7 +27,7 @@ class ConfluenceAdapter:
     def get_space_id(self, space_key: str) -> str:
         """space key로 space ID(숫자) 조회 (v2 API용)"""
         resp = requests.get(
-            f"{self._base_url}/api/v2/spaces?keys={space_key}",
+            f"{self._v2_base_url}/api/v2/spaces?keys={space_key}",
             auth=self._auth,
             timeout=30,
         )
@@ -53,7 +56,7 @@ class ConfluenceAdapter:
         }
 
         resp = requests.post(
-            f"{self._base_url}/api/v2/pages",
+            f"{self._v2_base_url}/api/v2/pages",
             json=payload,
             auth=self._auth,
             timeout=60,
@@ -61,4 +64,4 @@ class ConfluenceAdapter:
         resp.raise_for_status()
         result = resp.json()
         page_id = result["id"]
-        return f"{self._base_url}/spaces/{space_key}/pages/{page_id}/{title}"
+        return f"{self._v2_base_url}/spaces/{space_key}/pages/{page_id}/{title}"
