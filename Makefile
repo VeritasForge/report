@@ -1,4 +1,4 @@
-.PHONY: help install lock run report weekly clean lint test coverage \
+.PHONY: help install lock run report weekly create-page clean lint test coverage \
        cronicle-status cronicle-start cronicle-stop cronicle-restart cronicle-open
 
 # Default target
@@ -10,6 +10,8 @@ help:
 	@echo "  make run DATE=YYYY-MM-DD - Run report for a specific date"
 	@echo "  make report        - Alias for 'make run'"
 	@echo "  make weekly        - Run the weekly summary report"
+	@echo "  make create-page   - Create next week's Confluence page"
+	@echo "  make create-page DATE=YYYY-MM-DD - Create page for specific week"
 	@echo "  make clean         - Clean cache files"
 	@echo "  make lint          - Run linter (ruff)"
 	@echo "  make test          - Run tests"
@@ -40,6 +42,10 @@ report: run
 # Run weekly report
 weekly:
 	REPORT_MODE=weekly uv run python -m src.main $(if $(DATE),--date $(DATE))
+
+# Create weekly page
+create-page:
+	REPORT_MODE=create_page uv run python -m src.main $(if $(DATE),--date $(DATE))
 
 # Clean cache files
 clean:

@@ -50,7 +50,34 @@ def main():
     print(f"Using CLI: {config.cli_type}")
     print(f"Report date: {report_date.isoformat()}")
 
-    if config.report_mode == "weekly":
+    if config.report_mode == "create_page":
+        from .infrastructure.adapters.confluence_adapter import ConfluenceAdapter
+        from .infrastructure.adapters.page_transformer import PageTransformer
+        from .application.create_page_use_case import CreateWeeklyPageUseCase
+        from .domain.models import WeeklyPageConfig
+
+        if not config.confluence_url or not config.confluence_user or not config.confluence_token:
+            print("ERROR: CONFLUENCE_URL, CONFLUENCE_USER, CONFLUENCE_TOKEN must be set.")
+            return
+
+        confluence = ConfluenceAdapter(
+            url=config.confluence_url,
+            user=config.confluence_user,
+            token=config.confluence_token,
+        )
+        transformer = PageTransformer()
+        use_case = CreateWeeklyPageUseCase(confluence, transformer)
+
+        weekly_page_config = WeeklyPageConfig(
+            space_key=config.report.space_key,
+            parent_page_id=config.parent_page_id,
+        )
+        success = use_case.execute(weekly_page_config, target_date=report_date)
+        if not success:
+            print("ERROR: Failed to create weekly page.")
+        return
+
+    elif config.report_mode == "weekly":
         # weekly 전용 경로
         executors: dict[str, type] = {"claude": ClaudeCLIExecutor, "gemini": GeminiCLIExecutor}
         executor_class = executors.get(config.cli_type)
