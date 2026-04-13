@@ -165,3 +165,53 @@ class TestAppConfig:
         assert config.slack_token == "xoxb-test-token"
         assert config.slack_channel == "C12345678"
         assert config.cli_type == "claude"
+
+
+class TestLoadConfigFromEnvCreatePage:
+    """create_page 모드 설정 로드 테스트"""
+
+    @patch.dict(
+        os.environ,
+        {
+            "CONFLUENCE_SPACE_KEY": "MAI",
+            "CONFLUENCE_URL": "https://test.atlassian.net",
+            "CONFLUENCE_USER": "test@test.com",
+            "CONFLUENCE_TOKEN": "test-token",
+            "PARENT_PAGE_ID": "1477279756",
+            "REPORT_MODE": "create_page",
+        },
+        clear=True,
+    )
+    @patch("src.infrastructure.config.load_dotenv")
+    def test_should_load_confluence_credentials(self, mock_load_dotenv):
+        # Given: Confluence 인증 환경변수가 설정된 상황
+
+        # When: 설정을 로드하면
+        config = load_config_from_env()
+
+        # Then: Confluence 인증 정보가 로드된다
+        assert config is not None
+        assert config.confluence_url == "https://test.atlassian.net"
+        assert config.confluence_user == "test@test.com"
+        assert config.confluence_token == "test-token"
+        assert config.parent_page_id == "1477279756"
+        assert config.report_mode == "create_page"
+
+    @patch.dict(
+        os.environ,
+        {"CONFLUENCE_SPACE_KEY": "MAI"},
+        clear=True,
+    )
+    @patch("src.infrastructure.config.load_dotenv")
+    def test_should_default_confluence_fields_to_empty(self, mock_load_dotenv):
+        # Given: Confluence 인증 환경변수가 없는 상황
+
+        # When: 설정을 로드하면
+        config = load_config_from_env()
+
+        # Then: 기본값은 빈 문자열이다
+        assert config is not None
+        assert config.confluence_url == ""
+        assert config.confluence_user == ""
+        assert config.confluence_token == ""
+        assert config.parent_page_id == ""
