@@ -7,6 +7,7 @@ from src.infrastructure.adapters.page_transformer import (
     NS_WRAPPER_CLOSE,
     NS_WRAPPER_OPEN,
     PageTransformer,
+    _unescape_html_entities,
 )
 
 # 최소 테이블 HTML 픽스처 (1명, 2일 — 월/금 구조)
@@ -442,3 +443,37 @@ class TestPageTransformerNamespace:
 
         # Then: JIRA 매크로가 월요일 ToDo에 이월된다
         assert "TICKET-999" in result
+
+
+class TestUnescapeHtmlEntities:
+    """HTML 엔티티 변환 — XML 표준 엔티티는 보존, 그 외는 unicode 변환"""
+
+    def test_should_preserve_xml_standard_entities(self):
+        # Given: XML 표준 엔티티 5개 (amp, lt, gt, quot, apos)
+        text = "&amp;&lt;&gt;&quot;&apos;"
+
+        # When: 변환하면
+        result = _unescape_html_entities(text)
+
+        # Then: 그대로 보존된다 (XML 파싱 깨지지 않게)
+        assert result == "&amp;&lt;&gt;&quot;&apos;"
+
+    def test_should_unescape_non_xml_html_entities(self):
+        # Given: 일반 HTML 엔티티
+        text = "&rarr;&nbsp;&copy;"
+
+        # When: 변환하면
+        result = _unescape_html_entities(text)
+
+        # Then: 유니코드로 변환된다
+        assert result == "→\xa0©"
+
+    def test_should_handle_mixed_entities(self):
+        # Given: XML 표준 + 일반 HTML 엔티티 혼합
+        text = "&amp; and &rarr; and &lt;"
+
+        # When: 변환하면
+        result = _unescape_html_entities(text)
+
+        # Then: XML은 보존, 일반은 변환
+        assert result == "&amp; and → and &lt;"
