@@ -1,14 +1,15 @@
 """주간 페이지 자동 생성 유스케이스"""
 
+import traceback
 from datetime import date, timedelta
 
-from ..domain.models import CreatePageStatus, WeeklyPageConfig
+from ..domain.models import CreatePageStatus, DateRange, WeeklyPageConfig
 from ..domain.services import (
     calculate_last_week_range,
     calculate_this_week_range,
     format_confluence_page_title,
 )
-from .ports import ConfluencePort, PageTransformerPort
+from .ports import ConfluencePort, NotificationPort, PageTransformerPort
 
 
 # 모듈 레벨 — application 레이어 (presentation mapping은 use case가 책임)
@@ -22,9 +23,16 @@ STATUS_LABELS: dict[CreatePageStatus, str] = {
 class CreateWeeklyPageUseCase:
     """이전 주 Confluence 페이지를 복사하여 새 주간 페이지 생성"""
 
-    def __init__(self, confluence: ConfluencePort, transformer: PageTransformerPort):
+    def __init__(
+        self,
+        confluence: ConfluencePort,
+        transformer: PageTransformerPort,
+        notifier: NotificationPort | None = None,
+    ):
         self.confluence = confluence
         self.transformer = transformer
+        self._notifier = notifier
+        self._already_notified: bool = False
 
     def execute(self, config: WeeklyPageConfig, target_date: date | None = None) -> bool:
         """
@@ -71,6 +79,39 @@ class CreateWeeklyPageUseCase:
         )
         print(f"Created: {url}")
         return True
+
+    def _build_title(
+        self,
+        prefix: str,
+        this_week: DateRange,
+        status: CreatePageStatus,
+    ) -> str:
+        """Slack 알림 제목 생성"""
+        start = this_week.start.strftime('%y.%m.%d')
+        end = this_week.end.strftime('%m.%d')
+        bracket = f"[{prefix}]" if prefix else ""
+        label = STATUS_LABELS[status]
+        return f"{bracket}[{start} ~ {end}_WeeklyPage] {label}"
+
+    def _notify(
+        self,
+        status: CreatePageStatus,
+        prefix: str,
+        this_week: DateRange,
+        body: str,
+    ) -> None:
+        """알림 전송 (격리됨, notifier=None이면 스킵, 예외 swallow)"""
+        if self._notifier is None:
+            return
+        title = self._build_title(prefix, this_week, status)
+        try:
+            self._notifier.send(title, body)
+            self._already_notified = True
+        except Exception as e:
+            print(
+                f"WARNING: Slack notification failed (status={status.value}): {e}\n"
+                f"{traceback.format_exc()}"
+            )
 
     def _generate_date_strings(self, monday: date, friday: date) -> list[str]:
         """월~금 날짜를 MM.DD 형식 리스트로 생성"""
