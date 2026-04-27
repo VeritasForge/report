@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -34,3 +35,15 @@ class WeeklyPageConfig:
     """주간 페이지 자동 생성 설정"""
     space_key: str
     parent_page_id: str
+
+
+class CreatePageStatus(str, Enum):
+    """create_page 유스케이스 실행 결과 (semantic identifier)
+
+    값은 Korean/emoji가 아닌 semantic identifier. 사용자에게 보이는 라벨은
+    application 레이어의 STATUS_LABELS dict에 mapping된다 (Clean Architecture
+    의 도메인-프레젠테이션 분리 준수).
+    """
+    CREATED = "created"
+    ALREADY_EXISTS = "already_exists"
+    FAILED = "failed"
