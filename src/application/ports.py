@@ -32,7 +32,11 @@ class ConfluencePort(Protocol):
     """Confluence 페이지 접근 추상 인터페이스"""
 
     def get_page_by_title(self, space_key: str, title: str) -> dict | None:
-        """제목으로 페이지 조회. 없으면 None 반환."""
+        """제목으로 페이지 조회. 없으면 None 반환.
+
+        반환 dict는 'id', 'title', 'url' 키를 포함한다.
+        URL은 create_page() 반환과 동일한 형식 (어댑터 내부 _build_page_url로 통일).
+        """
         ...
 
     def get_page_content(self, page_id: str) -> str:
