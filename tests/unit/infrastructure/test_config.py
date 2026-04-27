@@ -215,3 +215,33 @@ class TestLoadConfigFromEnvCreatePage:
         assert config.confluence_user == ""
         assert config.confluence_token == ""
         assert config.parent_page_id == ""
+
+
+class TestLoadConfigFromEnvCreatePageNotification:
+    """SLACK_CHANNEL_CREATE_PAGE env 로딩"""
+
+    def test_should_load_slack_channel_create_page_when_set(self, monkeypatch):
+        # Given: env 변수 설정
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.setenv("SLACK_CHANNEL_CREATE_PAGE", "C12345CREATE")
+
+        # When: 설정 로드
+        from src.infrastructure.config import load_config_from_env
+        config = load_config_from_env()
+
+        # Then: slack_channel_create_page 필드에 채워진다
+        assert config is not None
+        assert config.slack_channel_create_page == "C12345CREATE"
+
+    def test_should_default_slack_channel_create_page_to_empty_when_unset(self, monkeypatch):
+        # Given: SLACK_CHANNEL_CREATE_PAGE 미설정
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.delenv("SLACK_CHANNEL_CREATE_PAGE", raising=False)
+
+        # When: 설정 로드
+        from src.infrastructure.config import load_config_from_env
+        config = load_config_from_env()
+
+        # Then: 빈 문자열 (None 아님 — dataclass default)
+        assert config is not None
+        assert config.slack_channel_create_page == ""
