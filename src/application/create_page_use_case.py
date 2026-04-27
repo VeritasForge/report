@@ -2,13 +2,21 @@
 
 from datetime import date, timedelta
 
-from ..domain.models import WeeklyPageConfig
+from ..domain.models import CreatePageStatus, WeeklyPageConfig
 from ..domain.services import (
     calculate_last_week_range,
     calculate_this_week_range,
     format_confluence_page_title,
 )
 from .ports import ConfluencePort, PageTransformerPort
+
+
+# 모듈 레벨 — application 레이어 (presentation mapping은 use case가 책임)
+STATUS_LABELS: dict[CreatePageStatus, str] = {
+    CreatePageStatus.CREATED: "✅ 생성 완료",
+    CreatePageStatus.ALREADY_EXISTS: "ℹ️ 이미 존재",
+    CreatePageStatus.FAILED: "❌ 생성 실패",
+}
 
 
 class CreateWeeklyPageUseCase:

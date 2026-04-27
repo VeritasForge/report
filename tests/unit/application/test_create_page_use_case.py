@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.application.create_page_use_case import CreateWeeklyPageUseCase
-from src.domain.models import WeeklyPageConfig
+from src.application.create_page_use_case import STATUS_LABELS, CreateWeeklyPageUseCase
+from src.domain.models import CreatePageStatus, WeeklyPageConfig
 
 
 @pytest.fixture
@@ -126,3 +126,27 @@ class TestCreateWeeklyPageUseCase:
         assert call_args[1]["title"] == "2026.04.13 ~ 04.17"
         assert call_args[1]["parent_id"] == "1477279756"
         assert call_args[1]["space_key"] == "MAI"
+
+
+class TestStatusLabels:
+    """STATUS_LABELS — application 레이어 presentation mapping"""
+
+    def test_created_label_is_korean_with_emoji(self):
+        # Given/When/Then
+        assert STATUS_LABELS[CreatePageStatus.CREATED] == "✅ 생성 완료"
+
+    def test_already_exists_label_is_korean_with_emoji(self):
+        # Given/When/Then
+        assert STATUS_LABELS[CreatePageStatus.ALREADY_EXISTS] == "ℹ️ 이미 존재"
+
+    def test_failed_label_is_korean_with_emoji(self):
+        # Given/When/Then
+        assert STATUS_LABELS[CreatePageStatus.FAILED] == "❌ 생성 실패"
+
+    def test_all_enum_values_have_labels(self):
+        # Given: 모든 enum 값
+        # When/Then: STATUS_LABELS에 키 누락 없음 (KeyError 방지)
+        for status in CreatePageStatus:
+            assert status in STATUS_LABELS
+            assert isinstance(STATUS_LABELS[status], str)
+            assert len(STATUS_LABELS[status]) > 0
