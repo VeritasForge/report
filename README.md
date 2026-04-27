@@ -45,6 +45,7 @@ Before running the script, you need to have the following installed:
     SLACK_TOKEN="YOUR_SLACK_BOT_TOKEN"
     SLACK_CHANNEL="YOUR_SLACK_CHANNEL_ID"
     SLACK_CHANNEL_WEEKLY="YOUR_WEEKLY_SLACK_CHANNEL_ID"  # Optional, separate channel for weekly reports
+    SLACK_CHANNEL_CREATE_PAGE="YOUR_CREATE_PAGE_SLACK_CHANNEL_ID"  # Optional, separate channel for create_page mode notifications
 
     # Confluence Configuration
     CONFLUENCE_SPACE_KEY="MAI"
@@ -70,6 +71,7 @@ Before running the script, you need to have the following installed:
     *   `SLACK_TOKEN`: Your Slack bot token with `chat:write` permission.
     *   `SLACK_CHANNEL`: The ID of the Slack channel where daily reports will be sent.
     *   `SLACK_CHANNEL_WEEKLY`: (Optional) The ID of the Slack channel for weekly reports. If not set, weekly reports are skipped (empty channel).
+    *   `SLACK_CHANNEL_CREATE_PAGE`: (Optional) The ID of the Slack channel for `create_page` mode notifications (success/already-exists/failure). If not set, notifications are skipped — page creation continues normally.
     *   `CONFLUENCE_SPACE_KEY`: The Confluence space key where weekly pages are stored.
     *   `REPORT_TEAM_NAME`: (Optional) Team name to include in the report header.
     *   `REPORT_TEAM_PREFIX`: (Optional) Team prefix for Slack message title. Format: `[{prefix}][{YY.MM.DD}_Daily]` or `[{prefix}][{YY.MM.DD}_Weekly]`.
