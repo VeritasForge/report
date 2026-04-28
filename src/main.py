@@ -66,13 +66,32 @@ def main():
             token=config.confluence_token,
         )
         transformer = PageTransformer()
-        use_case = CreateWeeklyPageUseCase(confluence, transformer)
+
+        # SlackAdapter 인스턴스화 (env 미설정 시 None — main.py가 primary 가드)
+        notifier = (
+            SlackAdapter(
+                token=config.slack_token,
+                channel=config.slack_channel_create_page,
+            )
+            if config.slack_channel_create_page and config.slack_token
+            else None
+        )
+
+        use_case = CreateWeeklyPageUseCase(
+            confluence=confluence,
+            transformer=transformer,
+            notifier=notifier,
+        )
 
         weekly_page_config = WeeklyPageConfig(
             space_key=config.report.space_key,
             parent_page_id=config.parent_page_id,
         )
-        success = use_case.execute(weekly_page_config, target_date=report_date)
+        success = use_case.execute(
+            weekly_page_config,
+            target_date=report_date,
+            notification_prefix=config.report.team_prefix,
+        )
         if not success:
             print("ERROR: Failed to create weekly page.")
         return

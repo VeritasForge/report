@@ -16,6 +16,7 @@ class AppConfig:
     cli_type: str
     report_mode: str = "daily"
     slack_channel_weekly: str = ""
+    slack_channel_create_page: str = ""
     confluence_url: str = ""
     confluence_user: str = ""
     confluence_token: str = ""
@@ -50,6 +51,7 @@ def load_config_from_env(report_date: date | None = None) -> AppConfig | None:
         slack_token=os.environ.get("SLACK_TOKEN", ""),
         slack_channel=os.environ.get("SLACK_CHANNEL", ""),
         slack_channel_weekly=os.environ.get("SLACK_CHANNEL_WEEKLY", ""),
+        slack_channel_create_page=os.environ.get("SLACK_CHANNEL_CREATE_PAGE", ""),
         cli_type=cli_type,
         report_mode=report_mode,
         confluence_url=os.environ.get("CONFLUENCE_URL", ""),

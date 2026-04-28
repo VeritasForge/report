@@ -15,9 +15,22 @@ class ConfluenceAdapter:
         self._v2_base_url = base if base.endswith("/wiki") else f"{base}/wiki"
         self._auth = (user, token)
 
+    def _build_page_url(self, page_id: str, space_key: str, title: str) -> str:
+        """v2 API URL 형식으로 페이지 URL 구성 (private helper).
+
+        A 케이스(create_page)와 B 케이스(get_page_by_title)가 동일 형식을 갖도록
+        단일 진입점으로 사용.
+        """
+        return f"{self._v2_base_url}/spaces/{space_key}/pages/{page_id}/{title}"
+
     def get_page_by_title(self, space_key: str, title: str) -> dict | None:
-        """제목으로 페이지 조회. 없으면 None 반환."""
-        return self.client.get_page_by_title(space_key, title)
+        """제목으로 페이지 조회. 반환 dict에 'url' 키 추가."""
+        page = self.client.get_page_by_title(space_key, title)
+        if page is None:
+            return None
+        # use case가 일관된 URL 형식 사용 가능하도록 'url' 필드 추가
+        page["url"] = self._build_page_url(page["id"], space_key, title)
+        return page
 
     def get_page_content(self, page_id: str) -> str:
         """페이지의 storage format HTML 조회"""
@@ -64,4 +77,4 @@ class ConfluenceAdapter:
         resp.raise_for_status()
         result = resp.json()
         page_id = result["id"]
-        return f"{self._v2_base_url}/spaces/{space_key}/pages/{page_id}/{title}"
+        return self._build_page_url(page_id, space_key, title)
