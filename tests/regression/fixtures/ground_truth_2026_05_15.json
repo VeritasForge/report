@@ -1,0 +1,166 @@
+{
+  "_comment": "Synthetic ground truth fixture for daily_report prompt regression testing. All names, project IDs, and domain terms are fictional. Replace with your own organization's data to run regression against your environment.",
+  "report_date": "2026-05-15",
+  "confluence_page_id": "0000000000",
+  "confluence_page_title": "2026.05.11 ~ 05.15",
+  "members": {
+    "Alice (Backend)": {
+      "done": [],
+      "doing": [
+        {
+          "jira_ticket": "PROJ-1001",
+          "jira_summary": "[ProductA] OrderItem이 삭제 또는 변경되어 범위 처리에 포함되지 않는 경우, 다른 시간대의 범위에 포함되는 데이터가 있음에도 상태가 초기화됨",
+          "jira_fix_versions": [],
+          "jira_status": "Created",
+          "confluence_subitems": [
+            "개발 진행중",
+            "예외케이스는 모두 통과",
+            "테스트코드 추가 및 코드정리",
+            "FeatureService 문서화 필요 (FeatureRecord, SessionStatusHistory, 처리 프로세스)"
+          ],
+          "expected_category": "[ProductA]",
+          "expected_summary_short": "OrderItem 범위 처리 개선"
+        }
+      ],
+      "todo": []
+    },
+    "Bob": {
+      "done": [
+        {
+          "jira_ticket": "PROJ-1002",
+          "jira_summary": "[ProductSim] input-A, input-B 입력 리팩토링",
+          "jira_fix_versions": [],
+          "jira_status": "Merged(Closed)",
+          "confluence_subitems": ["[ProductSim]"],
+          "expected_category": "[ProductSim]",
+          "expected_summary_short": "input-A/input-B 입력 리팩토링"
+        }
+      ],
+      "doing": [
+        {
+          "jira_ticket": null,
+          "confluence_subitems": ["[ProductSim]"],
+          "expected_category": "[ProductSim]",
+          "expected_summary_short": "ProductSim 후속 작업 (세부 미기재)"
+        }
+      ],
+      "todo": []
+    },
+    "Charlie": {
+      "done": [
+        {
+          "jira_ticket": "PROJ-1003",
+          "jira_summary": "[ProductA] 특정 timezone 설정 시, 리포트 출력 단계에서 지원하지 않는 시간대 라는 응답이 수신됨",
+          "jira_fix_versions": ["2.2.2-h1"],
+          "jira_status": "Resolved",
+          "confluence_subitems": [],
+          "expected_category": "[ProductA v2.2.2-h1]",
+          "expected_summary_short": "timezone 설정 오류 수정"
+        }
+      ],
+      "doing": [
+        {
+          "jira_ticket": null,
+          "confluence_subitems": [
+            "계정별 권한 설정 정책 구현 검증 논의 사항 기능 POC",
+            "웹푸시 알람도 권한 기능 추가해야함",
+            "소속이 프리셋으로 추가되거나 커스텀하게 추가되면 확장 되도록 설계 되어야함"
+          ],
+          "expected_category": "[기술 리서치/문서화]",
+          "expected_summary_short": "계정별 권한 설정 정책 POC (웹푸시 알람 권한, 소속 프리셋/커스텀 확장)"
+        }
+      ],
+      "todo": []
+    },
+    "David": {
+      "done": [],
+      "doing": [
+        {
+          "jira_ticket": "PROJ-1004",
+          "jira_summary": "[ProductA-BE] report 생성 기능 개선",
+          "jira_fix_versions": [],
+          "jira_status": "In Progress",
+          "confluence_subitems": [
+            "ProductA 2.3.0",
+            "PR리뷰 반영중",
+            "helm쪽 추가 변경 필요"
+          ],
+          "expected_category": "[ProductA v2.3.0]",
+          "expected_summary_short": "Report 생성 기능 개선 PR 리뷰 반영 (helm 추가 변경 필요)"
+        }
+      ],
+      "todo": []
+    },
+    "Eve": {
+      "done": [
+        {
+          "jira_ticket": null,
+          "confluence_subitems": [
+            "Trivy 자동화 이슈 처리 계속",
+            "PR #6625",
+            "PR #6624",
+            "PR #6623",
+            "PR #6617"
+          ],
+          "expected_category": "[기술 개선]",
+          "expected_summary_short": "Trivy 자동화 이슈 처리 (PR 4건)"
+        },
+        {
+          "jira_ticket": "PROJ-1005",
+          "jira_summary": "moduleA 관련 github dependabot depends graph 문제 해결",
+          "jira_fix_versions": [],
+          "jira_status": "Merged(Closed)",
+          "confluence_subitems": [],
+          "expected_category": "[기술 개선]",
+          "expected_summary_short": "moduleA dependabot 의존성 그래프 문제 해결"
+        },
+        {
+          "jira_ticket": null,
+          "confluence_subitems": [
+            "[WIP] 계정별 권한 설정 상위기획",
+            "Charlie PoC 관련 미팅"
+          ],
+          "expected_category": "[기술 리서치/문서화]",
+          "expected_summary_short": "계정별 권한 설정 상위기획 PoC 미팅"
+        }
+      ],
+      "doing": [
+        {
+          "jira_ticket": null,
+          "confluence_subitems": ["AI Agent SDK 비용 발생 관련 조사"],
+          "expected_category": "[기술 리서치/문서화]",
+          "expected_summary_short": "AI Agent SDK 비용 조사"
+        },
+        {
+          "jira_ticket": null,
+          "confluence_subitems": ["Docker Image 캡쳐 자동화 개발한거 리펙토링"],
+          "expected_category": "[기술 개선]",
+          "expected_summary_short": "Docker Image 캡쳐 자동화 리팩토링"
+        }
+      ],
+      "todo": [
+        {
+          "jira_ticket": null,
+          "confluence_subitems": ["ModuleX 개발"],
+          "expected_category": "[기타]",
+          "expected_summary_short": "ModuleX 개발"
+        }
+      ]
+    }
+  },
+  "expected_categories": [
+    "[ProductA]",
+    "[ProductA v2.2.2-h1]",
+    "[ProductA v2.3.0]",
+    "[ProductSim]",
+    "[기술 개선]",
+    "[기술 리서치/문서화]",
+    "[기타]"
+  ],
+  "total_items": {
+    "done": 5,
+    "doing": 7,
+    "todo": 1,
+    "total": 13
+  }
+}

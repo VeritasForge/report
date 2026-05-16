@@ -1,4 +1,5 @@
-.PHONY: help install lock run report weekly create-page clean lint test coverage \
+.PHONY: help install lock run report weekly create-page dry-run clean lint test coverage \
+       regression-run regression-score regression regression-compare \
        cronicle-status cronicle-start cronicle-stop cronicle-restart cronicle-open
 
 # Default target
@@ -8,6 +9,8 @@ help:
 	@echo "  make lock          - Update lock file"
 	@echo "  make run           - Run the daily report generator"
 	@echo "  make run DATE=YYYY-MM-DD - Run report for a specific date"
+	@echo "  make run MODEL=sonnet    - Override Claude model (sonnet/haiku/opus)"
+	@echo "  make dry-run       - Run without Slack (stdout only); accepts DATE/MODEL"
 	@echo "  make report        - Alias for 'make run'"
 	@echo "  make weekly        - Run the weekly summary report"
 	@echo "  make create-page   - Create next week's Confluence page"
@@ -16,6 +19,12 @@ help:
 	@echo "  make lint          - Run linter (ruff)"
 	@echo "  make test          - Run tests"
 	@echo "  make coverage      - Show coverage report"
+	@echo ""
+	@echo "Regression (daily_report prompt accuracy):"
+	@echo "  make regression-run [DATE=YYYY-MM-DD]   - Run 23 dry-runs (sonnet x10 + haiku x10 + opus x3)"
+	@echo "  make regression-score RUNS_DIR=path     - Score a runs directory with rubric"
+	@echo "  make regression [DATE=YYYY-MM-DD]       - Run + score in one shot"
+	@echo "  make regression-compare BASE=path NEW=path - Compare two scored runs dirs"
 	@echo ""
 	@echo "Cronicle:"
 	@echo "  make cronicle-status  - Check Cronicle running status"
@@ -34,14 +43,18 @@ lock:
 
 # Run the report generator
 run:
-	uv run python -m src.main $(if $(DATE),--date $(DATE))
+	uv run python -m src.main $(if $(DATE),--date $(DATE)) $(if $(MODEL),--model $(MODEL))
 
 # Alias for run
 report: run
 
+# Dry-run: stdout only, no Slack
+dry-run:
+	DRY_RUN=1 $(MAKE) run $(if $(DATE),DATE=$(DATE)) $(if $(MODEL),MODEL=$(MODEL))
+
 # Run weekly report
 weekly:
-	REPORT_MODE=weekly uv run python -m src.main $(if $(DATE),--date $(DATE))
+	REPORT_MODE=weekly uv run python -m src.main $(if $(DATE),--date $(DATE)) $(if $(MODEL),--model $(MODEL))
 
 # Create weekly page
 create-page:
@@ -64,6 +77,28 @@ test:
 # Show coverage report
 coverage:
 	uv run coverage report --show-missing
+
+# Regression: run 23 dry-runs (sonnet x10 + haiku x10 + opus x3)
+regression-run:
+	bash tests/regression/scripts/run_regression.sh $(DATE)
+
+# Regression: score a runs directory
+regression-score:
+	@if [ -z "$(RUNS_DIR)" ]; then echo "Usage: make regression-score RUNS_DIR=tests/regression/runs/<dir>"; exit 1; fi
+	uv run python tests/regression/scripts/score_runs.py $(RUNS_DIR)
+
+# Regression: run + score (auto-detect the most recent runs dir)
+regression: regression-run
+	@latest=$$(ls -td tests/regression/runs/2* 2>/dev/null | head -1); \
+	if [ -n "$$latest" ]; then \
+	  echo "Scoring $$latest"; \
+	  uv run python tests/regression/scripts/score_runs.py "$$latest"; \
+	fi
+
+# Regression: compare baseline vs new runs
+regression-compare:
+	@if [ -z "$(BASE)" ] || [ -z "$(NEW)" ]; then echo "Usage: make regression-compare BASE=tests/regression/runs/<base> NEW=tests/regression/runs/<new>"; exit 1; fi
+	uv run python tests/regression/scripts/compare_runs.py $(BASE) $(NEW)
 
 CRONICLE := /opt/cronicle/bin/control.sh
 CRONICLE_URL := http://localhost:3012

@@ -21,3 +21,7 @@ htmlcov/
 # Docs
 docs/*
 docs/superpowers/
+
+# Regression test outputs (raw runs are not version-controlled)
+# fixtures/ and scripts/ are committed; runs/ contains generated outputs only
+tests/regression/runs/
