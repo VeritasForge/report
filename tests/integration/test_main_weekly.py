@@ -221,9 +221,9 @@ class TestMainWeeklyMode:
         # When: main을 호출하면
         main()
 
-        # Then: 기존 GenerateWeeklyReportUseCase (daily)가 사용된다
+        # Then: 기존 GenerateWeeklyReportUseCase (daily)가 사용된다 (Task 2/5: model 인자 추가)
         mock_daily_use_case_class.assert_called_once()
-        mock_create_executor.assert_called_once_with("claude")
+        mock_create_executor.assert_called_once_with("claude", model="sonnet")
 
     @patch("sys.argv", ["src.main"])
     @patch.dict(

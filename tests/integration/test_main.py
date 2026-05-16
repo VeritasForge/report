@@ -100,8 +100,8 @@ class TestMain:
         # When: main을 호출하면
         main()
 
-        # Then: 의존성이 올바르게 생성된다
-        mock_create_executor.assert_called_once_with("claude")
+        # Then: 의존성이 올바르게 생성된다 (Task 2/5: model 파라미터 default sonnet 전달)
+        mock_create_executor.assert_called_once_with("claude", model="sonnet")
         mock_report_generator.assert_called_once_with(mock_executor)
         mock_slack_adapter.assert_called_once_with(
             token="test-token", channel="test-channel"
@@ -207,8 +207,8 @@ class TestMain:
         # When: main을 호출하면
         main()
 
-        # Then: gemini 실행기가 생성된다
-        mock_create_executor.assert_called_once_with("gemini")
+        # Then: gemini 실행기가 생성된다 (Task 5: model은 Gemini에서 무시되지만 인자는 전달)
+        mock_create_executor.assert_called_once_with("gemini", model="sonnet")
 
     @patch("sys.argv", ["src.main", "--date", "2026-04-06"])
     @patch("src.main.SlackAdapter")

@@ -1,6 +1,8 @@
-"""CLI 실행기 weekly_report 커맨드 테스트"""
+"""CLI 실행기 weekly_report 커맨드 테스트 — Claude는 SDK mock, Gemini는 subprocess mock."""
 
 from unittest.mock import MagicMock, patch
+
+from claude_agent_sdk import AssistantMessage, TextBlock
 
 from src.infrastructure.adapters.cli_executors import (
     ClaudeCLIExecutor,
@@ -8,101 +10,87 @@ from src.infrastructure.adapters.cli_executors import (
 )
 
 
+def _make_fake_query(captured: dict):
+    """query mock — 호출 인자를 captured에 저장, 빈 응답 yield."""
+
+    async def fake(**kwargs):
+        captured.update(kwargs)
+        yield AssistantMessage(content=[TextBlock(text="")], model="claude-sonnet-4-6")
+
+    return fake
+
+
 class TestClaudeCLIExecutorWeeklyCommand:
-    """Claude CLI 실행기 weekly_report 커맨드 테스트"""
+    """Claude SDK 실행기 weekly_report 커맨드."""
 
-    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
-    def test_should_build_weekly_command_without_mention_users(self, mock_popen):
-        # Given: weekly_report 커맨드로 생성된 실행기
+    def test_should_build_weekly_command_without_mention_users(self):
+        # Given: command='weekly_report'
+        captured: dict = {}
         executor = ClaudeCLIExecutor(command="weekly_report")
-        mock_process = MagicMock()
-        mock_process.communicate.return_value = ("", "")
-        mock_process.returncode = 0
-        mock_popen.return_value = mock_process
+        with patch(
+            "src.infrastructure.adapters.cli_executors.query",
+            new=_make_fake_query(captured),
+        ):
+            # When
+            executor.execute("MAI")
+        # Then: prompt가 /weekly_report로 시작
+        assert captured["prompt"] == "/weekly_report MAI"
 
-        # When: execute를 호출하면
-        executor.execute("MAI")
-
-        # Then: /weekly_report 커맨드가 실행된다
-        expected_command = [
-            "claude",
-            "-p",
-            "/weekly_report MAI",
-            "--dangerously-skip-permissions",
-        ]
-        actual_command = mock_popen.call_args[0][0]
-        assert actual_command == expected_command
-
-    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
-    def test_should_build_weekly_command_with_mention_users(self, mock_popen):
-        # Given: weekly_report 커맨드로 생성된 실행기
+    def test_should_build_weekly_command_with_mention_users(self):
+        # Given
+        captured: dict = {}
         executor = ClaudeCLIExecutor(command="weekly_report")
-        mock_process = MagicMock()
-        mock_process.communicate.return_value = ("", "")
-        mock_process.returncode = 0
-        mock_popen.return_value = mock_process
-
-        # When: mention_users와 함께 execute를 호출하면
-        executor.execute("MAI", "@홍길동 @김철수")
-
-        # Then: mention_users가 포함된 /weekly_report 커맨드가 실행된다
-        expected_command = [
-            "claude",
-            "-p",
-            '/weekly_report MAI "@홍길동 @김철수"',
-            "--dangerously-skip-permissions",
-        ]
-        actual_command = mock_popen.call_args[0][0]
-        assert actual_command == expected_command
+        with patch(
+            "src.infrastructure.adapters.cli_executors.query",
+            new=_make_fake_query(captured),
+        ):
+            # When
+            executor.execute("MAI", "@홍길동 @김철수")
+        # Then
+        assert captured["prompt"] == '/weekly_report MAI "@홍길동 @김철수"'
 
     def test_should_default_to_daily_report_command(self):
-        # Given/When: 기본 생성자로 실행기를 생성하면
+        # Given/When: 기본 생성자
         executor = ClaudeCLIExecutor()
-
-        # Then: daily_report가 기본 커맨드이다
+        # Then
         assert executor._command == "daily_report"
 
 
 class TestGeminiCLIExecutorWeeklyCommand:
-    """Gemini CLI 실행기 weekly_report 커맨드 테스트"""
+    """Gemini CLI 실행기 weekly_report 커맨드 (subprocess 유지)."""
 
     @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
     def test_should_build_weekly_command_without_mention_users(self, mock_popen):
-        # Given: weekly_report 커맨드로 생성된 실행기
+        # Given
         executor = GeminiCLIExecutor(command="weekly_report")
         mock_process = MagicMock()
         mock_process.communicate.return_value = ("", "")
         mock_process.returncode = 0
         mock_popen.return_value = mock_process
-
-        # When: execute를 호출하면
+        # When
         executor.execute("MAI")
-
-        # Then: /weekly_report 커맨드가 실행된다
+        # Then
         expected_command = ["gemini", "-p", "/weekly_report MAI"]
         actual_command = mock_popen.call_args[0][0]
         assert actual_command == expected_command
 
     @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
     def test_should_build_weekly_command_with_mention_users(self, mock_popen):
-        # Given: weekly_report 커맨드로 생성된 실행기
+        # Given
         executor = GeminiCLIExecutor(command="weekly_report")
         mock_process = MagicMock()
         mock_process.communicate.return_value = ("", "")
         mock_process.returncode = 0
         mock_popen.return_value = mock_process
-
-        # When: mention_users와 함께 execute를 호출하면
+        # When
         executor.execute("MAI", "@홍길동")
-
-        # Then: mention_users가 포함된 /weekly_report 커맨드가 실행된다
+        # Then
         expected_command = ["gemini", "-p", '/weekly_report MAI "@홍길동"']
         actual_command = mock_popen.call_args[0][0]
         assert actual_command == expected_command
 
     def test_should_default_to_daily_report_command(self):
-        # Given/When: 기본 생성자로 실행기를 생성하면
+        # Given/When
         executor = GeminiCLIExecutor()
-
-        # Then: daily_report가 기본 커맨드이다
+        # Then
         assert executor._command == "daily_report"

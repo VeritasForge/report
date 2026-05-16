@@ -220,6 +220,12 @@ class TestLoadConfigFromEnvCreatePage:
 class TestLoadConfigFromEnvCreatePageNotification:
     """SLACK_CHANNEL_CREATE_PAGE env 로딩"""
 
+    @pytest.fixture(autouse=True)
+    def _isolate_env_and_dotenv(self, monkeypatch):
+        # .env 파일 leak 방지 (load_dotenv mock) + 해당 키 격리
+        monkeypatch.setattr("src.infrastructure.config.load_dotenv", lambda: None)
+        monkeypatch.delenv("SLACK_CHANNEL_CREATE_PAGE", raising=False)
+
     def test_should_load_slack_channel_create_page_when_set(self, monkeypatch):
         # Given: env 변수 설정
         monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
@@ -245,3 +251,132 @@ class TestLoadConfigFromEnvCreatePageNotification:
         # Then: 빈 문자열 (None 아님 — dataclass default)
         assert config is not None
         assert config.slack_channel_create_page == ""
+
+
+class TestCliModelAndDryRun:
+    """CLI_MODEL / DRY_RUN 환경변수 로딩 — plan Task 1.
+
+    카테고리: [Happy] / [Boundary] / [Error] — CLAUDE.md Test Coverage Categories.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _isolate_env_and_dotenv(self, monkeypatch):
+        # .env 파일 leak 방지 + 본 클래스가 다루는 env 키 격리
+        monkeypatch.setattr("src.infrastructure.config.load_dotenv", lambda: None)
+        monkeypatch.delenv("CLI_MODEL", raising=False)
+        monkeypatch.delenv("DRY_RUN", raising=False)
+
+    # ---------- [Happy] ----------
+    def test_should_load_cli_model_from_env_when_set(self, monkeypatch):
+        # Given: CLI_MODEL 환경변수가 sonnet으로 설정
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.setenv("CLI_MODEL", "sonnet")
+
+        # When: 설정 로드
+        config = load_config_from_env()
+
+        # Then: cli_model 필드에 채워진다
+        assert config is not None
+        assert config.cli_model == "sonnet"
+
+    def test_should_load_dry_run_true_when_env_is_1(self, monkeypatch):
+        # Given: DRY_RUN=1
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.setenv("DRY_RUN", "1")
+
+        # When: 설정 로드
+        config = load_config_from_env()
+
+        # Then: dry_run is True
+        assert config is not None
+        assert config.dry_run is True
+
+    @pytest.mark.parametrize("value", ["true", "True", "TRUE"])
+    def test_should_load_dry_run_true_when_env_is_true_case_insensitive(self, monkeypatch, value):
+        # Given: DRY_RUN이 'true'의 대소문자 변종
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.setenv("DRY_RUN", value)
+
+        # When: 설정 로드
+        config = load_config_from_env()
+
+        # Then: dry_run is True
+        assert config is not None
+        assert config.dry_run is True
+
+    # ---------- [Boundary] ----------
+    def test_should_default_cli_model_to_none_when_unset(self, monkeypatch):
+        # Given: CLI_MODEL 미설정
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.delenv("CLI_MODEL", raising=False)
+
+        # When: 설정 로드
+        config = load_config_from_env()
+
+        # Then: cli_model is None
+        assert config is not None
+        assert config.cli_model is None
+
+    def test_should_default_dry_run_to_false_when_unset(self, monkeypatch):
+        # Given: DRY_RUN 미설정
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.delenv("DRY_RUN", raising=False)
+
+        # When: 설정 로드
+        config = load_config_from_env()
+
+        # Then: dry_run is False
+        assert config is not None
+        assert config.dry_run is False
+
+    def test_should_treat_empty_cli_model_as_none(self, monkeypatch):
+        # Given: CLI_MODEL=""
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.setenv("CLI_MODEL", "")
+
+        # When: 설정 로드
+        config = load_config_from_env()
+
+        # Then: 빈 문자열은 None으로 정규화
+        assert config is not None
+        assert config.cli_model is None
+
+    def test_should_treat_dry_run_zero_as_false(self, monkeypatch):
+        # Given: DRY_RUN=0 (falsy)
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.setenv("DRY_RUN", "0")
+
+        # When: 설정 로드
+        config = load_config_from_env()
+
+        # Then: dry_run is False
+        assert config is not None
+        assert config.dry_run is False
+
+    @pytest.mark.parametrize("value", ["false", "False", "FALSE"])
+    def test_should_treat_dry_run_false_string_as_false(self, monkeypatch, value):
+        # Given: DRY_RUN이 'false'의 대소문자 변종
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.setenv("DRY_RUN", value)
+
+        # When: 설정 로드
+        config = load_config_from_env()
+
+        # Then: dry_run is False
+        assert config is not None
+        assert config.dry_run is False
+
+    # ---------- [Error] ----------
+    @pytest.mark.parametrize("value", ["yes", "enabled", "on", "random_string"])
+    def test_should_treat_dry_run_arbitrary_string_as_false(self, monkeypatch, value):
+        # Given: DRY_RUN이 truthy 화이트리스트(1/true)에 없는 임의 문자열
+        # 정책: 안전한 기본값 — 모르는 값은 False (잘못된 dry-run 활성화 회피)
+        monkeypatch.setenv("CONFLUENCE_SPACE_KEY", "MAI")
+        monkeypatch.setenv("DRY_RUN", value)
+
+        # When: 설정 로드
+        config = load_config_from_env()
+
+        # Then: dry_run is False (안전 기본)
+        assert config is not None
+        assert config.dry_run is False

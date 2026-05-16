@@ -21,6 +21,16 @@ class AppConfig:
     confluence_user: str = ""
     confluence_token: str = ""
     parent_page_id: str = ""
+    cli_model: str | None = None
+    dry_run: bool = False
+
+
+_TRUTHY_VALUES = ("1", "true")
+
+
+def _parse_bool_env(key: str) -> bool:
+    """환경변수를 boolean으로 파싱. 화이트리스트(`1`/`true`, case-insensitive) 외 값은 False."""
+    return os.environ.get(key, "").lower() in _TRUTHY_VALUES
 
 
 def load_config_from_env(report_date: date | None = None) -> AppConfig | None:
@@ -37,6 +47,8 @@ def load_config_from_env(report_date: date | None = None) -> AppConfig | None:
     mention_users = os.environ.get("REPORT_MENTION_USERS", "")
     cli_type = os.environ.get("CLI_TYPE", "claude")
     report_mode = os.environ.get("REPORT_MODE", "daily")
+    cli_model_raw = os.environ.get("CLI_MODEL", "")
+    cli_model = cli_model_raw or None
 
     report_config = ReportConfig(
         space_key=space_key,
@@ -58,4 +70,6 @@ def load_config_from_env(report_date: date | None = None) -> AppConfig | None:
         confluence_user=os.environ.get("CONFLUENCE_USER", ""),
         confluence_token=os.environ.get("CONFLUENCE_TOKEN", ""),
         parent_page_id=os.environ.get("PARENT_PAGE_ID", ""),
+        cli_model=cli_model,
+        dry_run=_parse_bool_env("DRY_RUN"),
     )

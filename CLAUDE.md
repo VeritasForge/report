@@ -198,6 +198,22 @@ Follow Robert C. Martin's 3 Rules of TDD:
 3.  **Parametrized Test**: Use 'pytest.mark.parametrize' for data-driven tests.
 4.  **Descriptive Naming**: 'test_should_return_error_when_invalid_input()' over 'test_input()'.
 
+**Test Coverage Categories (Mandatory):**
+
+각 Task의 RED phase는 아래 **3개 카테고리에서 각각 최소 1개 이상의 테스트 케이스를 포함**해야 한다. Plan 문서나 PR description의 RED 섹션에서 카테고리별로 라벨링하여 명시한다.
+
+| 카테고리 | 검증 대상 | 예시 |
+|---------|---------|------|
+| `[Happy]` | 정상 흐름 (정상 입력 → 정상 출력) | 유효 env var 로드, 정상 파라미터 전달, 정상 응답 누적 |
+| `[Boundary]` | 경계값/엣지 케이스 | default 값, 빈 문자열(`""`), `None`, falsy 값(`0`, `false`), 빈 컬렉션, 대소문자 변종, 멀티라인, 유니코드 |
+| `[Error]` | 예외/에러 케이스 | 외부 의존성 실패(`CLINotFoundError` 등), 잘못된 입력, 알려지지 않은 예외 정책(재발생/None 반환) |
+
+**규칙:**
+- Happy path만 테스트하고 GREEN phase로 진입 금지.
+- 예외 케이스가 자연스럽게 부재하는 단순 보관 Task(파라미터만 저장하는 생성자 등)는 예외 허용하되, plan/PR에 **사유 명시 필수** (예: "외부 호출/IO 부재로 예외 케이스 없음").
+- 경계 케이스는 *코드가 분기하는 모든 입력 영역*에서 1개 이상: truthy/falsy 분기, optional 인자의 `None`/실제 값, 컬렉션의 빈/단일/다수.
+- 예외 케이스는 *명시적으로 잡는 모든 예외 타입* 각각에 1개 (`except (A, B, C):`이면 3개).
+
 **테스트 실행:**
 ```bash
 # 전체 테스트

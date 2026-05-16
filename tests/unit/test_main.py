@@ -1,0 +1,235 @@
+"""main.py 단위 테스트 — argparse + 우선순위 병합 (plan Task 2).
+
+카테고리: [Happy] / [Boundary] / [Error] — CLAUDE.md Test Coverage Categories.
+"""
+
+import sys
+from dataclasses import dataclass
+from unittest.mock import patch
+
+import pytest
+
+from src.infrastructure.adapters.cli_executors import (
+    ClaudeCLIExecutor,
+    GeminiCLIExecutor,
+)
+from src.infrastructure.adapters.slack_adapter import SlackAdapter
+from src.infrastructure.adapters.stdout_adapter import StdoutAdapter
+from src.main import (
+    create_cli_executor,
+    create_notifier,
+    parse_args,
+    resolve_effective_settings,
+)
+
+
+@dataclass
+class _StubConfig:
+    cli_model: str | None = None
+    dry_run: bool = False
+
+
+@dataclass
+class _StubArgs:
+    model: str | None = None
+    dry_run: bool = False
+
+
+class TestParseArgs:
+    """argparse가 새 옵션을 인식한다."""
+
+    # ---------- [Happy] ----------
+    def test_should_parse_model_flag(self):
+        # Given: --model sonnet
+        with patch.object(sys, "argv", ["main.py", "--model", "sonnet"]):
+            # When
+            args = parse_args()
+        # Then
+        assert args.model == "sonnet"
+
+    def test_should_parse_dry_run_flag(self):
+        # Given: --dry-run
+        with patch.object(sys, "argv", ["main.py", "--dry-run"]):
+            # When
+            args = parse_args()
+        # Then
+        assert args.dry_run is True
+
+    # ---------- [Boundary] ----------
+    def test_should_default_model_to_none_when_flag_missing(self):
+        # Given: no --model
+        with patch.object(sys, "argv", ["main.py"]):
+            # When
+            args = parse_args()
+        # Then
+        assert args.model is None
+
+    def test_should_default_dry_run_to_false_when_flag_missing(self):
+        # Given: no --dry-run
+        with patch.object(sys, "argv", ["main.py"]):
+            # When
+            args = parse_args()
+        # Then
+        assert args.dry_run is False
+
+    # ---------- [Error] ----------
+    def test_should_exit_with_argparse_error_when_model_flag_has_no_value(self):
+        # Given: --model 뒤 값 없음
+        with patch.object(sys, "argv", ["main.py", "--model"]):
+            # When/Then: argparse가 SystemExit 발생
+            with pytest.raises(SystemExit):
+                parse_args()
+
+
+class TestResolveEffectiveSettings:
+    """args(CLI) + config(ENV) 우선순위 병합."""
+
+    # ---------- [Happy] — CLI 우선 ----------
+    def test_should_prefer_cli_model_over_env_when_both_set(self):
+        # Given: CLI=sonnet, ENV=haiku
+        args = _StubArgs(model="sonnet")
+        config = _StubConfig(cli_model="haiku")
+        # When
+        model, _ = resolve_effective_settings(args, config)
+        # Then: CLI 채택
+        assert model == "sonnet"
+
+    def test_should_prefer_cli_dry_run_over_env_when_both_set(self):
+        # Given: CLI=True, ENV=False (CLI 명시 우선)
+        args = _StubArgs(dry_run=True)
+        config = _StubConfig(dry_run=False)
+        # When
+        _, dry_run = resolve_effective_settings(args, config)
+        # Then
+        assert dry_run is True
+
+    # ---------- [Boundary] — fallback ----------
+    def test_should_fall_back_to_env_model_when_cli_arg_missing(self):
+        # Given: CLI 미지정, ENV=haiku
+        args = _StubArgs()
+        config = _StubConfig(cli_model="haiku")
+        # When
+        model, _ = resolve_effective_settings(args, config)
+        # Then
+        assert model == "haiku"
+
+    def test_should_fall_back_to_env_dry_run_when_cli_flag_missing(self):
+        # Given: CLI 미지정, ENV=True
+        args = _StubArgs(dry_run=False)
+        config = _StubConfig(dry_run=True)
+        # When
+        _, dry_run = resolve_effective_settings(args, config)
+        # Then
+        assert dry_run is True
+
+    def test_should_default_to_sonnet_when_neither_cli_nor_env_set(self):
+        # Given: 둘 다 없음
+        args = _StubArgs()
+        config = _StubConfig()
+        # When
+        model, _ = resolve_effective_settings(args, config)
+        # Then: 코드 default "sonnet"
+        assert model == "sonnet"
+
+    def test_should_default_dry_run_to_false_when_neither_set(self):
+        # Given: 둘 다 없음
+        args = _StubArgs()
+        config = _StubConfig()
+        # When
+        _, dry_run = resolve_effective_settings(args, config)
+        # Then
+        assert dry_run is False
+
+
+class TestCreateNotifier:
+    """dry_run 분기로 StdoutAdapter / SlackAdapter 주입 — plan Task 4.
+
+    [Error] 부재 사유: `create_notifier`는 외부 IO 없는 순수 팩토리 함수.
+    SlackAdapter는 send 시점에 token 누락을 warning으로 처리하므로 init 단계 예외 없음.
+    """
+
+    # ---------- [Happy] ----------
+    def test_should_return_stdout_adapter_when_dry_run_true(self):
+        # Given: dry_run=True
+        # When
+        notifier = create_notifier(dry_run=True, slack_token="x", slack_channel="C1")
+        # Then
+        assert isinstance(notifier, StdoutAdapter)
+
+    def test_should_return_slack_adapter_when_dry_run_false(self):
+        # Given: dry_run=False
+        # When
+        notifier = create_notifier(dry_run=False, slack_token="x", slack_channel="C1")
+        # Then
+        assert isinstance(notifier, SlackAdapter)
+
+    def test_should_return_slack_adapter_with_correct_channel_for_daily(self):
+        # Given: daily channel
+        # When
+        notifier = create_notifier(dry_run=False, slack_token="t", slack_channel="C-daily")
+        # Then: SlackAdapter가 채널을 정확히 받음
+        assert isinstance(notifier, SlackAdapter)
+        assert notifier._channel == "C-daily"
+
+    def test_should_return_slack_adapter_with_correct_channel_for_weekly(self):
+        # Given: weekly channel (같은 팩토리가 채널만 다르게)
+        # When
+        notifier = create_notifier(dry_run=False, slack_token="t", slack_channel="C-weekly")
+        # Then
+        assert isinstance(notifier, SlackAdapter)
+        assert notifier._channel == "C-weekly"
+
+    # ---------- [Boundary] ----------
+    def test_should_return_stdout_adapter_even_when_slack_token_missing(self):
+        # Given: dry_run=True + SLACK_TOKEN 빈 문자열
+        # When
+        notifier = create_notifier(dry_run=True, slack_token="", slack_channel="")
+        # Then: dry_run이 우선이므로 StdoutAdapter (Slack init 시도 안 함)
+        assert isinstance(notifier, StdoutAdapter)
+
+    def test_should_return_slack_adapter_with_empty_token_when_dry_run_false(self):
+        # Given: dry_run=False + token 빈 (production 미설정 시나리오)
+        # When
+        notifier = create_notifier(dry_run=False, slack_token="", slack_channel="")
+        # Then: SlackAdapter 인스턴스화는 성공 (send 시점에 warning)
+        assert isinstance(notifier, SlackAdapter)
+
+
+class TestCreateCliExecutor:
+    """cli_type → 적절한 Executor 팩토리."""
+
+    # ---------- [Happy] ----------
+    def test_should_return_claude_executor_when_cli_type_is_claude(self):
+        # Given/When
+        executor = create_cli_executor("claude")
+        # Then
+        assert isinstance(executor, ClaudeCLIExecutor)
+
+    def test_should_pass_command_and_model_to_claude_executor(self):
+        # Given/When: 명시적 command + model 전달
+        executor = create_cli_executor("claude", command="weekly_report", model="haiku")
+        # Then: Claude executor가 두 값을 보관
+        assert isinstance(executor, ClaudeCLIExecutor)
+        assert executor._command == "weekly_report"
+        assert executor._model == "haiku"
+
+    def test_should_return_gemini_executor_when_cli_type_is_gemini(self):
+        # Given/When
+        executor = create_cli_executor("gemini")
+        # Then
+        assert isinstance(executor, GeminiCLIExecutor)
+
+    # ---------- [Boundary] ----------
+    def test_should_pass_command_to_gemini_executor_and_ignore_model(self):
+        # Given: gemini는 model 인자를 무시
+        executor = create_cli_executor("gemini", command="weekly_report", model="sonnet")
+        # Then: command만 전달됨, _model 속성 없음
+        assert isinstance(executor, GeminiCLIExecutor)
+        assert executor._command == "weekly_report"
+        assert not hasattr(executor, "_model")
+
+    # ---------- [Error] ----------
+    def test_should_raise_value_error_for_unknown_cli_type(self):
+        # Given/When/Then
+        with pytest.raises(ValueError, match="Unknown CLI type"):
+            create_cli_executor("unknown")

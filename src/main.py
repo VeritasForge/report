@@ -1,25 +1,30 @@
 import argparse
 from datetime import date, datetime
 
-from .application.ports import CLIExecutorPort
+from .application.ports import CLIExecutorPort, NotificationPort
 from .application.use_cases import GenerateWeeklyReportUseCase
 from .application.weekly_summary_use_case import GenerateWeeklySummaryUseCase
 from .infrastructure.adapters.cli_executors import ClaudeCLIExecutor, GeminiCLIExecutor
 from .infrastructure.adapters.report_generator import ReportGenerator
 from .infrastructure.adapters.slack_adapter import SlackAdapter
+from .infrastructure.adapters.stdout_adapter import StdoutAdapter
 from .infrastructure.config import load_config_from_env
 
 
-def create_cli_executor(cli_type: str) -> CLIExecutorPort:
-    """CLI 타입에 따라 적절한 실행기 생성"""
-    executors = {
-        "claude": ClaudeCLIExecutor,
-        "gemini": GeminiCLIExecutor,
-    }
-    executor_class = executors.get(cli_type)
-    if executor_class is None:
-        raise ValueError(f"Unknown CLI type: {cli_type}. Supported: {list(executors.keys())}")
-    return executor_class()
+def create_cli_executor(
+    cli_type: str,
+    command: str = "daily_report",
+    model: str | None = None,
+) -> CLIExecutorPort:
+    """CLI 타입에 따라 적절한 실행기 생성.
+
+    Claude는 model 파라미터 지원, Gemini는 미지원 (본 PR 범위 밖).
+    """
+    if cli_type == "claude":
+        return ClaudeCLIExecutor(command=command, model=model)
+    if cli_type == "gemini":
+        return GeminiCLIExecutor(command=command)
+    raise ValueError(f"Unknown CLI type: {cli_type}. Supported: ['claude', 'gemini']")
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,12 +36,48 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="리포트 대상 날짜 (YYYY-MM-DD). 미지정 시 오늘 날짜 사용.",
     )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Claude 모델 (예: sonnet, haiku). CLI_MODEL env보다 우선. 둘 다 미설정 시 sonnet.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="Slack 전송 없이 stdout으로 리포트 출력. DRY_RUN env와 동등.",
+    )
     return parser.parse_args()
 
 
-def main():
+def resolve_effective_settings(args, config) -> tuple[str, bool]:
+    """CLI 인자와 config(ENV)에서 effective model/dry_run 결정.
+
+    우선순위: CLI 인자 > config(ENV) > 코드 default("sonnet" / False).
     """
-    Composition Root: 모든 의존성을 조립하고 애플리케이션을 실행
+    effective_model = args.model or config.cli_model or "sonnet"
+    effective_dry_run = bool(args.dry_run) or bool(config.dry_run)
+    return effective_model, effective_dry_run
+
+
+def create_notifier(dry_run: bool, slack_token: str, slack_channel: str) -> NotificationPort:
+    """dry_run 여부에 따라 적절한 Notifier 인스턴스 반환.
+
+    - dry_run=True → `StdoutAdapter` (Slack 미호출, SLACK_TOKEN 무관)
+    - dry_run=False → `SlackAdapter` (token 누락은 send 시점 warning으로 처리)
+    """
+    if dry_run:
+        return StdoutAdapter()
+    return SlackAdapter(token=slack_token, channel=slack_channel)
+
+
+def main():  # pragma: no cover
+    """Composition Root: 의존성 조립 + 애플리케이션 실행.
+
+    내부 분기 헬퍼(`parse_args`, `resolve_effective_settings`, `create_notifier`,
+    `create_cli_executor`)는 단위 테스트로 검증된다.
+    이 함수 자체는 글루 코드이므로 통합 테스트 영역으로 위임 (coverage 제외).
     """
     args = parse_args()
 
@@ -46,8 +87,11 @@ def main():
         print("Exiting due to configuration error.")
         return
 
+    effective_model, effective_dry_run = resolve_effective_settings(args, config)
+
     report_date = config.report.report_date or date.today()
     print(f"Using CLI: {config.cli_type}")
+    print(f"Model: {effective_model} | dry_run: {effective_dry_run}")
     print(f"Report date: {report_date.isoformat()}")
 
     if config.report_mode == "create_page":
@@ -98,22 +142,28 @@ def main():
 
     elif config.report_mode == "weekly":
         # weekly 전용 경로
-        executors: dict[str, type] = {"claude": ClaudeCLIExecutor, "gemini": GeminiCLIExecutor}
-        executor_class = executors.get(config.cli_type)
-        if executor_class is None:
-            raise ValueError(f"Unknown CLI type: {config.cli_type}. Supported: {list(executors.keys())}")
-        cli_executor = executor_class(command="weekly_report")
+        cli_executor = create_cli_executor(
+            config.cli_type, command="weekly_report", model=effective_model
+        )
         report_generator = ReportGenerator(cli_executor)
-        notifier = SlackAdapter(token=config.slack_token, channel=config.slack_channel_weekly)
+        notifier = create_notifier(
+            dry_run=effective_dry_run,
+            slack_token=config.slack_token,
+            slack_channel=config.slack_channel_weekly,
+        )
         use_case = GenerateWeeklySummaryUseCase(
             report_generator=report_generator,
             notifier=notifier,
         )
     else:
         # daily 경로
-        cli_executor = create_cli_executor(config.cli_type)
+        cli_executor = create_cli_executor(config.cli_type, model=effective_model)
         report_generator = ReportGenerator(cli_executor)
-        notifier = SlackAdapter(token=config.slack_token, channel=config.slack_channel)
+        notifier = create_notifier(
+            dry_run=effective_dry_run,
+            slack_token=config.slack_token,
+            slack_channel=config.slack_channel,
+        )
         use_case = GenerateWeeklyReportUseCase(
             report_generator=report_generator,
             notifier=notifier,
