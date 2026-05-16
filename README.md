@@ -57,6 +57,8 @@ Before running the script, you need to have the following installed:
 
     # CLI Configuration
     CLI_TYPE="claude"  # Optional, "claude" (default) or "gemini"
+    CLI_MODEL="sonnet"  # Optional, Claude model alias (sonnet/haiku/opus). Default: sonnet
+    DRY_RUN="0"  # Optional, "1" or "true" to print report to stdout without Slack
 
     # Report Mode
     REPORT_MODE="daily"  # Optional, "daily" (default) or "weekly"
@@ -77,6 +79,8 @@ Before running the script, you need to have the following installed:
     *   `REPORT_TEAM_PREFIX`: (Optional) Team prefix for Slack message title. Format: `[{prefix}][{YY.MM.DD}_Daily]` or `[{prefix}][{YY.MM.DD}_Weekly]`.
     *   `REPORT_MENTION_USERS`: (Optional) Users to mention when there are delayed or on-hold items.
     *   `CLI_TYPE`: (Optional) CLI to use for report generation. Supported values: `claude` (default), `gemini`.
+    *   `CLI_MODEL`: (Optional) Claude model alias when `CLI_TYPE=claude`. Supported: `sonnet` (default & **recommended**), `haiku`, `opus`. Ignored for Gemini. CLI flag `--model` takes precedence. See [Recommended Model](#recommended-model) section below.
+    *   `DRY_RUN`: (Optional) Truthy values (`1`, `true`, `True`) print the report to stdout instead of sending to Slack. Useful for prompt experimentation. CLI flag `--dry-run` takes precedence.
     *   `REPORT_MODE`: (Optional) Report mode. `daily` (default) generates a single day report, `weekly` generates a weekly summary.
     *   `CONFLUENCE_URL`: (Required for create_page mode) Your Confluence instance URL.
     *   `CONFLUENCE_USER`: (Required for create_page mode) Your Confluence user email.
@@ -85,6 +89,24 @@ Before running the script, you need to have the following installed:
 
 3.  **Configure Report Commands:**
     The report generation logic is defined in `.claude/commands/daily_report.md` (daily mode) and `.claude/commands/weekly_report.md` (weekly mode). These commands are automatically executed by the CLI with the calculated date range.
+
+## Recommended Model
+
+Based on a 23-run regression test (`tests/regression/`) against ground truth on 2026-05-15, the recommended model for production is **`sonnet`**.
+
+| Model | Avg Score (15 pts) | Stdev | Lowest | Highest | Infrastructure Failures | Note |
+|-------|--------------------|-------|--------|---------|-----------------------|------|
+| **Sonnet** | **15.00** 🏆 | 0.00 | 15.0 | 15.0 | 0/10 | **Recommended for production** |
+| Haiku | 12.14 | 1.44 | 9.67 | 15.0 | 0/10 | Lower cost, variable quality |
+| Opus | 10.67 (15.0†) | 7.51 | 2.0 | 15.0 | 1/3 | †Excluding 1 infra failure. Higher cost, occasional CLI failure |
+
+**Why Sonnet:**
+- Perfect score with zero variance across 10 runs (deterministic for our prompt)
+- ~1/5 cost of Opus
+- No infrastructure failures observed
+- Faster than Opus (~2min vs ~4min per run)
+
+Set `CLI_MODEL=sonnet` in `.env` (already the default fallback if unset).
 
 ## Usage
 
@@ -102,6 +124,17 @@ uv run python -m src.main --date 2026-04-06
 # Explicitly specify CLI
 CLI_TYPE=claude uv run python -m src.main
 CLI_TYPE=gemini uv run python -m src.main
+
+# Choose Claude model (sonnet/haiku/opus). CLI flag overrides CLI_MODEL env.
+uv run python -m src.main --model sonnet
+CLI_MODEL=haiku uv run python -m src.main
+# or: make run MODEL=sonnet
+
+# Dry-run (stdout only, no Slack). CLI flag overrides DRY_RUN env.
+uv run python -m src.main --model sonnet --dry-run
+DRY_RUN=1 uv run python -m src.main --model sonnet
+# or: make dry-run
+# or: make dry-run MODEL=sonnet DATE=2026-04-06
 
 # Run weekly report
 REPORT_MODE=weekly uv run python -m src.main
@@ -129,6 +162,80 @@ make cronicle-stop     # Stop Cronicle
 make cronicle-restart  # Restart Cronicle and open web UI
 make cronicle-open     # Open web UI in browser
 ```
+
+### Cronicle Event Scripts — Pin Sonnet
+
+When updating Cronicle events (Schedule tab), add `CLI_MODEL=sonnet` to each event's shell script to pin the recommended model. Example for the Daily Report event:
+
+```sh
+#!/bin/sh
+cd /Users/cjynim/lab/report
+CLI_MODEL=sonnet uv run python -m src.main
+```
+
+Same pattern for Weekly Report and Create Weekly Page:
+
+```sh
+# Weekly Report
+CLI_MODEL=sonnet REPORT_MODE=weekly uv run python -m src.main
+
+# Create Weekly Page
+CLI_MODEL=sonnet REPORT_MODE=create_page uv run python -m src.main
+```
+
+Note: If `.env` already has `CLI_MODEL=sonnet`, this is redundant but harmless and makes the intent explicit at the schedule level.
+
+## Regression Testing (Prompt Accuracy)
+
+The `tests/regression/` directory contains an automated harness to evaluate `daily_report.md` prompt accuracy against ground truth. Use this when modifying the prompt or evaluating new models.
+
+### Layout
+
+```
+tests/regression/
+├── fixtures/                       # Ground truth + scoring rubric (versioned)
+│   ├── ground_truth_2026_05_15.json
+│   └── rubric.md
+├── scripts/                        # Test orchestration (versioned)
+│   ├── run_regression.sh
+│   ├── score_runs.py
+│   └── compare_runs.py
+└── runs/                           # Generated outputs (gitignored)
+    └── <timestamp>/
+        ├── sonnet-001.txt ... opus-003.txt
+        ├── scores.csv
+        └── summary.md
+```
+
+### Commands
+
+```bash
+# Run 23 dry-runs (sonnet x10 + haiku x10 + opus x3) on the ground truth date
+make regression-run DATE=2026-05-15
+
+# Score an existing runs directory against the rubric
+make regression-score RUNS_DIR=tests/regression/runs/<timestamp>
+
+# Run + score in one shot
+make regression DATE=2026-05-15
+
+# Compare two scored runs directories
+make regression-compare BASE=tests/regression/runs/<base> NEW=tests/regression/runs/<new>
+```
+
+### Rubric
+
+15-point rubric across 4 categories (see `tests/regression/fixtures/rubric.md`):
+- A1–A8: Item coverage (8 points)
+- B1–B3: Category classification (3 points)
+- C1–C2: Hallucination / description-quote avoidance (2 points)
+- D1–D2: Output format (2 points)
+
+Adding a new ground truth fixture (different date) is straightforward: copy `ground_truth_2026_05_15.json`, update member work items, and reference it from a new `make regression-run DATE=YYYY-MM-DD` invocation.
+
+### Reusable Skill
+
+This regression testing workflow is also packaged as a reusable Claude Code skill at `.claude/skills/prompt-regression-testing/`. To apply the same workflow to a different project (different prompt, different domain), copy the skill directory and its `templates/` to the target project, adapt the fixtures and rubric patterns, and follow the `SKILL.md` step-by-step guide. The skill captures lessons learned from this project — including model cost/time estimates, common scoring pitfalls, and the company-info generalization pattern.
 
 ## Testing
 
