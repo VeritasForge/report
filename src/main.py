@@ -6,7 +6,7 @@ from .application.use_cases import GenerateReportUseCase
 from .infrastructure.adapters.cli_executors import ClaudeCLIExecutor
 from .infrastructure.adapters.slack_adapter import SlackAdapter
 from .infrastructure.adapters.stdout_adapter import StdoutAdapter
-from .infrastructure.config import load_config_from_env
+from .infrastructure.config import AppConfig, load_config_from_env
 
 
 def create_cli_executor(
@@ -65,7 +65,7 @@ def create_notifier(dry_run: bool, slack_token: str, slack_channel: str) -> Noti
     return SlackAdapter(token=slack_token, channel=slack_channel)
 
 
-def build_report_use_case(config, model: str, dry_run: bool) -> GenerateReportUseCase:
+def build_report_use_case(config: AppConfig, model: str, dry_run: bool) -> GenerateReportUseCase:
     """report_mode(daily/weekly)에 맞는 use case 조립."""
     if config.report_mode == "weekly":
         command, channel, suffix = "weekly_report", config.slack_channel_weekly, "Weekly"
@@ -79,7 +79,7 @@ def build_report_use_case(config, model: str, dry_run: bool) -> GenerateReportUs
     return GenerateReportUseCase(cli_executor, notifier, title_suffix=suffix)
 
 
-def run_create_page_mode(config, report_date: date) -> bool:
+def run_create_page_mode(config: AppConfig, report_date: date) -> bool:
     """create_page 모드 실행: 주간 Confluence 페이지 생성 조립 + 실행."""
     from .infrastructure.adapters.confluence_adapter import ConfluenceAdapter
     from .infrastructure.adapters.page_transformer import PageTransformer
