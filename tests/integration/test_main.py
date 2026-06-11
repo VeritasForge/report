@@ -55,16 +55,14 @@ class TestMain:
         mock_load_config.assert_called_once_with(report_date=None)
 
     @patch("sys.argv", ["src.main"])
+    @patch("src.main.GenerateReportUseCase")
     @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
-    @patch("src.main.create_cli_executor")
     @patch("src.main.load_config_from_env")
     def test_should_create_dependencies_correctly(
         self,
         mock_load_config,
-        mock_create_executor,
-        mock_report_generator,
         mock_slack_adapter,
+        mock_use_case_class,
         sample_report_config,
     ):
         # Given: 설정이 올바르게 로드되는 상황
@@ -77,33 +75,31 @@ class TestMain:
             cli_type="claude",
         )
         mock_load_config.return_value = mock_config
-        mock_executor = MagicMock()
-        mock_create_executor.return_value = mock_executor
-        mock_generator = MagicMock()
-        mock_generator.generate.return_value = None
-        mock_report_generator.return_value = mock_generator
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = True
+        mock_use_case_class.return_value = mock_use_case
 
         # When: main을 호출하면
         main()
 
-        # Then: 의존성이 올바르게 생성된다 (Task 2/5: model 파라미터 default sonnet 전달)
-        mock_create_executor.assert_called_once_with("claude", model="sonnet")
-        mock_report_generator.assert_called_once_with(mock_executor)
+        # Then: GenerateReportUseCase가 daily 구성으로 조립된다
+        executor_arg, notifier_arg = mock_use_case_class.call_args.args
+        assert isinstance(executor_arg, ClaudeCLIExecutor)
+        assert executor_arg._command == "daily_report"
+        assert executor_arg._model == "sonnet"
         mock_slack_adapter.assert_called_once_with(
             token="test-token", channel="test-channel"
         )
+        assert notifier_arg is mock_slack_adapter.return_value
+        assert mock_use_case_class.call_args.kwargs == {"title_suffix": "Daily"}
 
     @patch("sys.argv", ["src.main"])
-    @patch("src.main.GenerateWeeklyReportUseCase")
+    @patch("src.main.GenerateReportUseCase")
     @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
-    @patch("src.main.create_cli_executor")
     @patch("src.main.load_config_from_env")
     def test_should_execute_use_case(
         self,
         mock_load_config,
-        mock_create_executor,
-        mock_report_generator,
         mock_slack_adapter,
         mock_use_case_class,
         sample_report_config,
@@ -129,16 +125,12 @@ class TestMain:
         mock_use_case.execute.assert_called_once_with(sample_report_config)
 
     @patch("sys.argv", ["src.main"])
-    @patch("src.main.GenerateWeeklyReportUseCase")
+    @patch("src.main.GenerateReportUseCase")
     @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
-    @patch("src.main.create_cli_executor")
     @patch("src.main.load_config_from_env")
     def test_should_handle_use_case_failure(
         self,
         mock_load_config,
-        mock_create_executor,
-        mock_report_generator,
         mock_slack_adapter,
         mock_use_case_class,
         sample_report_config,
@@ -164,16 +156,14 @@ class TestMain:
         mock_use_case.execute.assert_called_once()
 
     @patch("sys.argv", ["src.main", "--date", "2026-04-06"])
+    @patch("src.main.GenerateReportUseCase")
     @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
-    @patch("src.main.create_cli_executor")
     @patch("src.main.load_config_from_env")
     def test_should_pass_date_argument_to_config(
         self,
         mock_load_config,
-        mock_create_executor,
-        mock_report_generator,
         mock_slack_adapter,
+        mock_use_case_class,
         sample_report_config,
     ):
         # Given: --date 인자가 주어진 상황
@@ -186,11 +176,9 @@ class TestMain:
             cli_type="claude",
         )
         mock_load_config.return_value = mock_config
-        mock_executor = MagicMock()
-        mock_create_executor.return_value = mock_executor
-        mock_generator = MagicMock()
-        mock_generator.generate.return_value = None
-        mock_report_generator.return_value = mock_generator
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = True
+        mock_use_case_class.return_value = mock_use_case
 
         # When: main을 호출하면
         main()

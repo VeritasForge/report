@@ -23,13 +23,6 @@ class ReportConfig:
     report_date: date | None = None  # 리포트 대상 날짜 (None이면 오늘)
 
 
-@dataclass
-class Report:
-    """생성된 보고서"""
-    main_content: str
-    thread_tickets: str | None = None
-
-
 @dataclass(frozen=True)
 class WeeklyPageConfig:
     """주간 페이지 자동 생성 설정"""

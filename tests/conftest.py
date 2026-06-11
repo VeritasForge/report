@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from src.domain.models import DateRange, Report, ReportConfig, WeeklyPageConfig
+from src.domain.models import DateRange, ReportConfig, WeeklyPageConfig
 
 
 @pytest.fixture
@@ -32,24 +32,6 @@ def sample_report_config_minimal() -> ReportConfig:
         team_name="",
         team_prefix="",
         mention_users="",
-    )
-
-
-@pytest.fixture
-def sample_report() -> Report:
-    """테스트용 보고서"""
-    return Report(
-        main_content="# Daily Report\n\n- Task 1 완료\n- Task 2 진행 중",
-        thread_tickets=None,
-    )
-
-
-@pytest.fixture
-def sample_report_with_tickets() -> Report:
-    """티켓 정보가 포함된 테스트용 보고서"""
-    return Report(
-        main_content="# Daily Report\n\n- Task 1 완료\n- Task 2 진행 중",
-        thread_tickets="[TICKET-123](https://jira.example.com/TICKET-123) Fix bug",
     )
 
 

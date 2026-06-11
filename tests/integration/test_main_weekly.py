@@ -7,7 +7,6 @@ import pytest
 
 from src.infrastructure.adapters.cli_executors import ClaudeCLIExecutor
 from src.infrastructure.config import AppConfig
-from src.domain.models import ReportConfig
 from src.main import main
 
 
@@ -27,94 +26,86 @@ class TestMainWeeklyMode:
         )
 
     @patch("sys.argv", ["src.main"])
-    @patch("src.main.GenerateWeeklySummaryUseCase")
+    @patch("src.main.GenerateReportUseCase")
     @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
     @patch("src.main.load_config_from_env")
     def test_should_use_slack_channel_weekly_in_weekly_mode(
         self,
         mock_load_config,
-        mock_report_generator,
         mock_slack_adapter,
-        mock_weekly_use_case_class,
+        mock_use_case_class,
         weekly_config,
     ):
         # Given: report_mode가 "weekly"이고 slack_channel_weekly가 설정된 상황
         mock_load_config.return_value = weekly_config
         mock_use_case = MagicMock()
         mock_use_case.execute.return_value = True
-        mock_weekly_use_case_class.return_value = mock_use_case
+        mock_use_case_class.return_value = mock_use_case
 
         # When: main을 호출하면
         main()
 
-        # Then: SlackAdapter에 slack_channel_weekly 값이 전달된다
+        # Then: SlackAdapter에 slack_channel_weekly 값이 전달되고 use case에 주입된다
         mock_slack_adapter.assert_called_once_with(
             token="test-token", channel="weekly-channel"
         )
+        notifier_arg = mock_use_case_class.call_args.args[1]
+        assert notifier_arg is mock_slack_adapter.return_value
 
     @patch("sys.argv", ["src.main"])
-    @patch("src.main.GenerateWeeklySummaryUseCase")
+    @patch("src.main.GenerateReportUseCase")
     @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
     @patch("src.main.load_config_from_env")
-    def test_should_use_weekly_summary_use_case_when_weekly_mode(
+    def test_should_use_weekly_title_suffix_when_weekly_mode(
         self,
         mock_load_config,
-        mock_report_generator,
         mock_slack_adapter,
-        mock_weekly_use_case_class,
+        mock_use_case_class,
         weekly_config,
     ):
         # Given: report_mode가 "weekly"인 설정
         mock_load_config.return_value = weekly_config
         mock_use_case = MagicMock()
         mock_use_case.execute.return_value = True
-        mock_weekly_use_case_class.return_value = mock_use_case
+        mock_use_case_class.return_value = mock_use_case
 
         # When: main을 호출하면
         main()
 
-        # Then: GenerateWeeklySummaryUseCase가 사용된다
-        mock_weekly_use_case_class.assert_called_once()
+        # Then: GenerateReportUseCase가 title_suffix="Weekly"로 생성되고 실행된다
+        assert mock_use_case_class.call_args.kwargs == {"title_suffix": "Weekly"}
         mock_use_case.execute.assert_called_once_with(weekly_config.report)
 
     @patch("sys.argv", ["src.main"])
-    @patch("src.main.GenerateWeeklySummaryUseCase")
+    @patch("src.main.GenerateReportUseCase")
     @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
     @patch("src.main.load_config_from_env")
     def test_should_create_cli_executor_with_weekly_report_command(
         self,
         mock_load_config,
-        mock_report_generator,
         mock_slack_adapter,
-        mock_weekly_use_case_class,
+        mock_use_case_class,
         weekly_config,
     ):
         # Given: report_mode가 "weekly"인 설정
         mock_load_config.return_value = weekly_config
         mock_use_case = MagicMock()
         mock_use_case.execute.return_value = True
-        mock_weekly_use_case_class.return_value = mock_use_case
+        mock_use_case_class.return_value = mock_use_case
 
         # When: main을 호출하면
         main()
 
-        # Then: ReportGenerator가 weekly_report 커맨드로 생성된 executor를 받는다
-        call_args = mock_report_generator.call_args[0][0]
-        assert isinstance(call_args, ClaudeCLIExecutor)
-        assert call_args._command == "weekly_report"
+        # Then: use case가 weekly_report 커맨드로 생성된 executor를 받는다
+        executor_arg = mock_use_case_class.call_args.args[0]
+        assert isinstance(executor_arg, ClaudeCLIExecutor)
+        assert executor_arg._command == "weekly_report"
 
     @patch("sys.argv", ["src.main"])
-    @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
     @patch("src.main.load_config_from_env")
     def test_should_raise_error_for_unknown_cli_type_in_weekly_mode(
         self,
         mock_load_config,
-        mock_report_generator,
-        mock_slack_adapter,
         sample_report_config,
     ):
         # Given: weekly mode + 알 수 없는 CLI 타입
@@ -132,23 +123,21 @@ class TestMainWeeklyMode:
             main()
 
     @patch("sys.argv", ["src.main"])
-    @patch("src.main.GenerateWeeklySummaryUseCase")
+    @patch("src.main.GenerateReportUseCase")
     @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
     @patch("src.main.load_config_from_env")
     def test_should_handle_weekly_use_case_failure(
         self,
         mock_load_config,
-        mock_report_generator,
         mock_slack_adapter,
-        mock_weekly_use_case_class,
+        mock_use_case_class,
         weekly_config,
     ):
         # Given: weekly 유스케이스가 실패하는 상황
         mock_load_config.return_value = weekly_config
         mock_use_case = MagicMock()
         mock_use_case.execute.return_value = False
-        mock_weekly_use_case_class.return_value = mock_use_case
+        mock_use_case_class.return_value = mock_use_case
 
         # When: main을 호출하면
         main()  # 예외 없이 종료
@@ -157,18 +146,14 @@ class TestMainWeeklyMode:
         mock_use_case.execute.assert_called_once()
 
     @patch("sys.argv", ["src.main"])
-    @patch("src.main.GenerateWeeklyReportUseCase")
+    @patch("src.main.GenerateReportUseCase")
     @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
-    @patch("src.main.create_cli_executor")
     @patch("src.main.load_config_from_env")
     def test_should_use_daily_use_case_when_daily_mode(
         self,
         mock_load_config,
-        mock_create_executor,
-        mock_report_generator,
         mock_slack_adapter,
-        mock_daily_use_case_class,
+        mock_use_case_class,
         sample_report_config,
     ):
         # Given: report_mode가 "daily" (기본값)인 설정
@@ -182,14 +167,17 @@ class TestMainWeeklyMode:
         mock_load_config.return_value = config
         mock_use_case = MagicMock()
         mock_use_case.execute.return_value = True
-        mock_daily_use_case_class.return_value = mock_use_case
+        mock_use_case_class.return_value = mock_use_case
 
         # When: main을 호출하면
         main()
 
-        # Then: 기존 GenerateWeeklyReportUseCase (daily)가 사용된다 (Task 2/5: model 인자 추가)
-        mock_daily_use_case_class.assert_called_once()
-        mock_create_executor.assert_called_once_with("claude", model="sonnet")
+        # Then: title_suffix="Daily" + daily_report executor(model default sonnet)로 조립된다
+        assert mock_use_case_class.call_args.kwargs == {"title_suffix": "Daily"}
+        executor_arg = mock_use_case_class.call_args.args[0]
+        assert isinstance(executor_arg, ClaudeCLIExecutor)
+        assert executor_arg._command == "daily_report"
+        assert executor_arg._model == "sonnet"
 
     @patch("sys.argv", ["src.main"])
     @patch.dict(
@@ -200,24 +188,22 @@ class TestMainWeeklyMode:
         },
         clear=True,
     )
-    @patch("src.main.GenerateWeeklySummaryUseCase")
+    @patch("src.main.GenerateReportUseCase")
     @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
     @patch("src.infrastructure.config.load_dotenv")
     def test_should_use_weekly_mode_from_env_variable(
         self,
         mock_load_dotenv,
-        mock_report_generator,
         mock_slack_adapter,
-        mock_weekly_use_case_class,
+        mock_use_case_class,
     ):
         # Given: REPORT_MODE=weekly 환경변수가 설정된 상황
         mock_use_case = MagicMock()
         mock_use_case.execute.return_value = True
-        mock_weekly_use_case_class.return_value = mock_use_case
+        mock_use_case_class.return_value = mock_use_case
 
         # When: main을 호출하면
         main()
 
-        # Then: GenerateWeeklySummaryUseCase가 사용된다
-        mock_weekly_use_case_class.assert_called_once()
+        # Then: title_suffix="Weekly"로 use case가 생성된다
+        assert mock_use_case_class.call_args.kwargs == {"title_suffix": "Weekly"}

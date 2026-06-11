@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from src.domain.models import DateRange, Report, ReportConfig, WeeklyPageConfig
+from src.domain.models import DateRange, ReportConfig, WeeklyPageConfig
 
 
 class TestDateRange:
@@ -86,38 +86,6 @@ class TestReportConfig:
         # When/Then: 속성을 수정하려고 하면 에러가 발생한다
         with pytest.raises(AttributeError):
             sample_report_config.space_key = "NEW"
-
-
-class TestReport:
-    """Report 엔티티 테스트"""
-
-    def test_should_create_report_with_main_content_only(self):
-        # Given: 메인 콘텐츠만 주어졌을 때
-        content = "# Report Content"
-
-        # When: Report를 생성하면
-        report = Report(main_content=content)
-
-        # Then: 메인 콘텐츠가 설정되고 thread_tickets는 None이다
-        assert report.main_content == content
-        assert report.thread_tickets is None
-
-    def test_should_create_report_with_thread_tickets(self, sample_report_with_tickets):
-        # Given/When: thread_tickets가 포함된 Report가 주어졌을 때
-
-        # Then: 모든 필드가 올바르게 설정된다
-        assert "Daily Report" in sample_report_with_tickets.main_content
-        assert "TICKET-123" in sample_report_with_tickets.thread_tickets
-
-    def test_should_be_mutable(self, sample_report):
-        # Given: Report가 주어졌을 때 (frozen=False)
-        new_content = "Updated content"
-
-        # When: 속성을 수정하면
-        sample_report.main_content = new_content
-
-        # Then: 속성이 수정된다
-        assert sample_report.main_content == new_content
 
 
 class TestWeeklyPageConfig:

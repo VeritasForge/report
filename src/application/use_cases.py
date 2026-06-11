@@ -1,38 +1,42 @@
-from datetime import date, datetime
+from datetime import date
 
 from ..domain.models import ReportConfig
-from .ports import NotificationPort, ReportGeneratorPort
+from ..domain.services import extract_report_content
+from .ports import CLIExecutorPort, NotificationPort
 
 
-class GenerateWeeklyReportUseCase:
-    """주간 보고서 생성 및 전송 유스케이스"""
+class GenerateReportUseCase:
+    """리포트 생성 및 전송 유스케이스 (daily/weekly 공용)
+
+    title_suffix가 Slack 제목의 모드 구분자가 된다.
+    예: "Daily" → [BE][26.01.27_Daily], "Weekly" → [BE][26.01.27_Weekly]
+    """
 
     def __init__(
         self,
-        report_generator: ReportGeneratorPort,
+        cli_executor: CLIExecutorPort,
         notifier: NotificationPort,
+        title_suffix: str,
     ):
-        self._report_generator = report_generator
+        self._cli_executor = cli_executor
         self._notifier = notifier
+        self._title_suffix = title_suffix
 
     def execute(self, config: ReportConfig) -> bool:
-        """보고서 생성 및 전송 실행"""
-        print(f"\n--------------------\nGenerating report from: {config.space_key}\n--------------------")
+        print(f"\n--------------------\nGenerating {self._title_suffix} report from: {config.space_key}\n--------------------")
 
-        # 1. 보고서 생성 (/daily_report 커맨드 실행 - 날짜는 자동 계산됨)
-        report = self._report_generator.generate(config)
-        if report is None:
+        output = self._cli_executor.execute(
+            config.space_key, config.mention_users, config.report_date
+        )
+        if output is None:
             print("ERROR: Failed to generate report. Skipping notification.")
             return False
 
-        # 2. 메인 메시지(제목)와 스레드 메시지(리포트 내용) 전송
-        title = self._build_title(config)
-        self._notifier.send(title, report.main_content)
+        self._notifier.send(self._build_title(config), extract_report_content(output))
         return True
 
     def _build_title(self, config: ReportConfig) -> str:
-        """Slack 메인 메시지용 제목 생성 (예: [BE][26.01.27_Daily])"""
         report_date = config.report_date or date.today()
-        formatted_date = report_date.strftime('%y.%m.%d')
+        formatted_date = report_date.strftime("%y.%m.%d")
         prefix = f"[{config.team_prefix}]" if config.team_prefix else ""
-        return f"{prefix}[{formatted_date}_Daily]"
+        return f"{prefix}[{formatted_date}_{self._title_suffix}]"

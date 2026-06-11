@@ -1,249 +1,79 @@
-"""Application 유스케이스 테스트"""
+"""GenerateReportUseCase 단위 테스트 (daily/weekly 공용)"""
 
-from datetime import date, datetime
-from unittest.mock import MagicMock, patch
+from datetime import date
+from unittest.mock import Mock
 
-import pytest
-
-from src.application.use_cases import GenerateWeeklyReportUseCase
-from src.domain.models import Report, ReportConfig
+from src.application.use_cases import GenerateReportUseCase
+from src.domain.models import ReportConfig
 
 
-class TestGenerateWeeklyReportUseCase:
-    """주간 보고서 생성 유스케이스 테스트"""
-
-    @pytest.fixture
-    def mock_report_generator(self):
-        """Mock ReportGeneratorPort"""
-        return MagicMock()
-
-    @pytest.fixture
-    def mock_notifier(self):
-        """Mock NotificationPort"""
-        return MagicMock()
-
-    @pytest.fixture
-    def use_case(self, mock_report_generator, mock_notifier):
-        """테스트용 유스케이스 인스턴스"""
-        return GenerateWeeklyReportUseCase(
-            report_generator=mock_report_generator,
-            notifier=mock_notifier,
-        )
-
-    def test_should_generate_and_send_report_successfully(
-        self,
-        use_case,
-        mock_report_generator,
-        mock_notifier,
-        sample_report_config,
-        sample_report,
-    ):
-        # Given: 보고서 생성이 성공적으로 완료되는 상황
-        mock_report_generator.generate.return_value = sample_report
-
-        # When: 유스케이스를 실행하면
-        result = use_case.execute(sample_report_config)
-
-        # Then: True를 반환하고, 보고서가 생성되고 전송된다
-        assert result is True
-        mock_report_generator.generate.assert_called_once_with(sample_report_config)
-        mock_notifier.send.assert_called_once()
-
-    def test_should_return_false_when_report_generation_fails(
-        self, use_case, mock_report_generator, mock_notifier, sample_report_config
-    ):
-        # Given: 보고서 생성이 실패하는 상황
-        mock_report_generator.generate.return_value = None
-
-        # When: 유스케이스를 실행하면
-        result = use_case.execute(sample_report_config)
-
-        # Then: False를 반환하고, 알림이 전송되지 않는다
-        assert result is False
-        mock_notifier.send.assert_not_called()
-
-    def test_should_send_report_content_as_thread_message(
-        self,
-        use_case,
-        mock_report_generator,
-        mock_notifier,
-        sample_report_config,
-        sample_report,
-    ):
-        # Given: 보고서가 생성된 상황
-        mock_report_generator.generate.return_value = sample_report
-
-        # When: 유스케이스를 실행하면
-        use_case.execute(sample_report_config)
-
-        # Then: 메인 메시지(제목)와 스레드 메시지(보고서 내용)가 전송된다
-        call_args = mock_notifier.send.call_args
-        assert call_args[0][1] == sample_report.main_content  # thread_message
-
-    def test_should_build_title_with_team_prefix(
-        self,
-        use_case,
-        mock_report_generator,
-        mock_notifier,
-        sample_report,
-    ):
-        # Given: 팀 접두사가 있고 report_date가 지정된 상황
-        config = ReportConfig(
-            space_key="MAI", team_name="Backend Team",
-            team_prefix="BE", mention_users="@홍길동 @김철수",
-            report_date=date(2026, 1, 27),
-        )
-        mock_report_generator.generate.return_value = sample_report
-
-        # When: 유스케이스를 실행하면
-        use_case.execute(config)
-
-        # Then: "[BE][26.01.27_Daily]" 형식의 제목이 전송된다
-        call_args = mock_notifier.send.call_args
-        assert call_args[0][0] == "[BE][26.01.27_Daily]"
-
-    def test_should_build_title_without_team_prefix(
-        self,
-        use_case,
-        mock_report_generator,
-        mock_notifier,
-        sample_report,
-    ):
-        # Given: 팀 접두사가 없고 report_date가 지정된 상황
-        config = ReportConfig(
-            space_key="MAI", team_name="", team_prefix="", mention_users="",
-            report_date=date(2026, 1, 27),
-        )
-        mock_report_generator.generate.return_value = sample_report
-
-        # When: 유스케이스를 실행하면
-        use_case.execute(config)
-
-        # Then: "[26.01.27_Daily]" 형식의 제목이 전송된다 (접두사 없음)
-        call_args = mock_notifier.send.call_args
-        assert call_args[0][0] == "[26.01.27_Daily]"
-
-    def test_should_call_generator_with_correct_config(
-        self,
-        use_case,
-        mock_report_generator,
-        mock_notifier,
-        sample_report_config,
-        sample_report,
-    ):
-        # Given: 설정이 주어진 상황
-        mock_report_generator.generate.return_value = sample_report
-
-        # When: 유스케이스를 실행하면
-        use_case.execute(sample_report_config)
-
-        # Then: 올바른 설정으로 보고서 생성이 호출된다
-        mock_report_generator.generate.assert_called_once_with(sample_report_config)
-
-    def test_should_format_date_correctly_in_title(
-        self,
-        use_case,
-        mock_report_generator,
-        mock_notifier,
-        sample_report,
-    ):
-        # Given: 특정 날짜가 주어진 상황
-        config = ReportConfig(
-            space_key="MAI", team_name="Backend Team",
-            team_prefix="BE", mention_users="",
-            report_date=date(2026, 12, 31),
-        )
-        mock_report_generator.generate.return_value = sample_report
-
-        # When: 유스케이스를 실행하면
-        use_case.execute(config)
-
-        # Then: 날짜가 올바르게 포맷된다 (YY.MM.DD)
-        call_args = mock_notifier.send.call_args
-        assert "[26.12.31_Daily]" in call_args[0][0]
-
-
-    def test_should_use_report_date_in_title_when_specified(
-        self,
-        use_case,
-        mock_report_generator,
-        mock_notifier,
-        sample_report,
-    ):
-        # Given: report_date가 지정된 설정
-        config = ReportConfig(
-            space_key="MAI", team_name="Backend Team",
-            team_prefix="BE", mention_users="", report_date=date(2026, 4, 6),
-        )
-        mock_report_generator.generate.return_value = sample_report
-
-        # When: 유스케이스를 실행하면
-        use_case.execute(config)
-
-        # Then: 지정된 날짜가 제목에 반영된다
-        call_args = mock_notifier.send.call_args
-        assert call_args[0][0] == "[BE][26.04.06_Daily]"
-
-
-class TestBuildTitle:
-    """제목 생성 메서드 테스트"""
-
-    @pytest.fixture
-    def use_case(self):
-        """테스트용 유스케이스 인스턴스 (의존성 Mock)"""
-        return GenerateWeeklyReportUseCase(
-            report_generator=MagicMock(),
-            notifier=MagicMock(),
-        )
-
-    def test_should_include_prefix_when_provided(self, use_case):
-        # Given: 팀 접두사가 있는 설정
-        config = ReportConfig(
-            space_key="MAI", team_name="Backend Team",
-            team_prefix="BE", mention_users="@홍길동 @김철수",
-            report_date=date(2026, 1, 27),
-        )
-
-        # When: 제목을 생성하면
-        result = use_case._build_title(config)
-
-        # Then: 접두사가 포함된 제목이 생성된다
-        assert result == "[BE][26.01.27_Daily]"
-
-    def test_should_exclude_prefix_when_empty(self, use_case):
-        # Given: 팀 접두사가 없는 설정
-        config = ReportConfig(
-            space_key="MAI", team_name="", team_prefix="", mention_users="",
-            report_date=date(2026, 1, 27),
-        )
-
-        # When: 제목을 생성하면
-        result = use_case._build_title(config)
-
-        # Then: 접두사 없이 제목이 생성된다
-        assert result == "[26.01.27_Daily]"
-
-    @pytest.mark.parametrize(
-        "prefix,expected_prefix_part",
-        [
-            ("BE", "[BE]"),
-            ("FE", "[FE]"),
-            ("QA", "[QA]"),
-            ("DevOps", "[DevOps]"),
-        ],
+def make_config(**overrides) -> ReportConfig:
+    defaults = dict(
+        space_key="MAI", team_name="Backend Team", team_prefix="BE",
+        mention_users="@홍길동", report_date=date(2026, 1, 27),
     )
-    def test_should_handle_various_prefixes(
-        self, use_case, prefix, expected_prefix_part
-    ):
-        # Given: 다양한 팀 접두사가 주어졌을 때
-        config = ReportConfig(
-            space_key="MAI", team_name="Team",
-            team_prefix=prefix, mention_users="",
-            report_date=date(2026, 1, 27),
+    defaults.update(overrides)
+    return ReportConfig(**defaults)
+
+
+class TestGenerateReportUseCase:
+    def test_should_send_daily_title_and_extracted_content(self):
+        # [Happy] Given: executor가 마커 포함 출력 반환, Daily 접미사
+        executor = Mock()
+        executor.execute.return_value = "분석...\n\U0001f4ca 일정 요약\n- 작업1"
+        notifier = Mock()
+        use_case = GenerateReportUseCase(executor, notifier, title_suffix="Daily")
+        # When
+        result = use_case.execute(make_config())
+        # Then: 제목 [BE][26.01.27_Daily] + 마커부터 추출된 본문 전송
+        assert result is True
+        executor.execute.assert_called_once_with("MAI", "@홍길동", date(2026, 1, 27))
+        notifier.send.assert_called_once_with(
+            "[BE][26.01.27_Daily]", "\U0001f4ca 일정 요약\n- 작업1"
         )
 
-        # When: 제목을 생성하면
-        result = use_case._build_title(config)
+    def test_should_send_weekly_title_when_suffix_is_weekly(self):
+        # [Happy] Given: Weekly 접미사
+        executor = Mock()
+        executor.execute.return_value = "주간 본문"
+        notifier = Mock()
+        use_case = GenerateReportUseCase(executor, notifier, title_suffix="Weekly")
+        # When
+        use_case.execute(make_config())
+        # Then
+        notifier.send.assert_called_once_with("[BE][26.01.27_Weekly]", "주간 본문")
 
-        # Then: 해당 접두사가 포함된다
-        assert result.startswith(expected_prefix_part)
+    def test_should_omit_prefix_when_team_prefix_empty(self):
+        # [Boundary] Given: team_prefix 빈 문자열
+        executor = Mock()
+        executor.execute.return_value = "본문"
+        notifier = Mock()
+        use_case = GenerateReportUseCase(executor, notifier, title_suffix="Daily")
+        # When
+        use_case.execute(make_config(team_prefix=""))
+        # Then: prefix 없이 [26.01.27_Daily]
+        notifier.send.assert_called_once_with("[26.01.27_Daily]", "본문")
+
+    def test_should_use_today_when_report_date_is_none(self):
+        # [Boundary] Given: report_date None → 오늘 날짜
+        executor = Mock()
+        executor.execute.return_value = "본문"
+        notifier = Mock()
+        use_case = GenerateReportUseCase(executor, notifier, title_suffix="Daily")
+        # When
+        use_case.execute(make_config(report_date=None))
+        # Then: 오늘 날짜 포맷이 제목에 포함
+        sent_title = notifier.send.call_args[0][0]
+        assert date.today().strftime("%y.%m.%d") in sent_title
+
+    def test_should_return_false_and_skip_notify_when_executor_fails(self):
+        # [Error] Given: executor가 None 반환 (CLI 실패)
+        executor = Mock()
+        executor.execute.return_value = None
+        notifier = Mock()
+        use_case = GenerateReportUseCase(executor, notifier, title_suffix="Daily")
+        # When
+        result = use_case.execute(make_config())
+        # Then: False 반환, 알림 미전송
+        assert result is False
+        notifier.send.assert_not_called()

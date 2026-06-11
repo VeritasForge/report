@@ -2,10 +2,8 @@ import argparse
 from datetime import date, datetime
 
 from .application.ports import CLIExecutorPort, NotificationPort
-from .application.use_cases import GenerateWeeklyReportUseCase
-from .application.weekly_summary_use_case import GenerateWeeklySummaryUseCase
+from .application.use_cases import GenerateReportUseCase
 from .infrastructure.adapters.cli_executors import ClaudeCLIExecutor
-from .infrastructure.adapters.report_generator import ReportGenerator
 from .infrastructure.adapters.slack_adapter import SlackAdapter
 from .infrastructure.adapters.stdout_adapter import StdoutAdapter
 from .infrastructure.config import load_config_from_env
@@ -140,29 +138,21 @@ def main():  # pragma: no cover
         cli_executor = create_cli_executor(
             config.cli_type, command="weekly_report", model=effective_model
         )
-        report_generator = ReportGenerator(cli_executor)
         notifier = create_notifier(
             dry_run=effective_dry_run,
             slack_token=config.slack_token,
             slack_channel=config.slack_channel_weekly,
         )
-        use_case = GenerateWeeklySummaryUseCase(
-            report_generator=report_generator,
-            notifier=notifier,
-        )
+        use_case = GenerateReportUseCase(cli_executor, notifier, title_suffix="Weekly")
     else:
         # daily 경로
         cli_executor = create_cli_executor(config.cli_type, model=effective_model)
-        report_generator = ReportGenerator(cli_executor)
         notifier = create_notifier(
             dry_run=effective_dry_run,
             slack_token=config.slack_token,
             slack_channel=config.slack_channel,
         )
-        use_case = GenerateWeeklyReportUseCase(
-            report_generator=report_generator,
-            notifier=notifier,
-        )
+        use_case = GenerateReportUseCase(cli_executor, notifier, title_suffix="Daily")
 
     success = use_case.execute(config.report)
     if not success:
