@@ -65,97 +65,92 @@ def create_notifier(dry_run: bool, slack_token: str, slack_channel: str) -> Noti
     return SlackAdapter(token=slack_token, channel=slack_channel)
 
 
-def main():  # pragma: no cover
-    """Composition Root: 의존성 조립 + 애플리케이션 실행.
+def build_report_use_case(config, model: str, dry_run: bool) -> GenerateReportUseCase:
+    """report_mode(daily/weekly)에 맞는 use case 조립."""
+    if config.report_mode == "weekly":
+        command, channel, suffix = "weekly_report", config.slack_channel_weekly, "Weekly"
+    else:
+        command, channel, suffix = "daily_report", config.slack_channel, "Daily"
 
-    내부 분기 헬퍼(`parse_args`, `resolve_effective_settings`, `create_notifier`,
+    cli_executor = create_cli_executor(config.cli_type, command=command, model=model)
+    notifier = create_notifier(
+        dry_run=dry_run, slack_token=config.slack_token, slack_channel=channel
+    )
+    return GenerateReportUseCase(cli_executor, notifier, title_suffix=suffix)
+
+
+def run_create_page_mode(config, report_date: date) -> bool:
+    """create_page 모드 실행: 주간 Confluence 페이지 생성 조립 + 실행."""
+    from .infrastructure.adapters.confluence_adapter import ConfluenceAdapter
+    from .infrastructure.adapters.page_transformer import PageTransformer
+    from .application.create_page_use_case import CreateWeeklyPageUseCase
+    from .domain.models import WeeklyPageConfig
+
+    if not config.confluence_url or not config.confluence_user or not config.confluence_token:
+        print("ERROR: CONFLUENCE_URL, CONFLUENCE_USER, CONFLUENCE_TOKEN must be set.")
+        return False
+
+    confluence = ConfluenceAdapter(
+        url=config.confluence_url,
+        user=config.confluence_user,
+        token=config.confluence_token,
+    )
+    transformer = PageTransformer()
+
+    # SlackAdapter 인스턴스화 (env 미설정 시 None — main.py가 primary 가드)
+    notifier = (
+        SlackAdapter(
+            token=config.slack_token,
+            channel=config.slack_channel_create_page,
+        )
+        if config.slack_channel_create_page and config.slack_token
+        else None
+    )
+
+    use_case = CreateWeeklyPageUseCase(
+        confluence=confluence,
+        transformer=transformer,
+        notifier=notifier,
+    )
+
+    weekly_page_config = WeeklyPageConfig(
+        space_key=config.report.space_key,
+        parent_page_id=config.parent_page_id,
+    )
+    return use_case.execute(
+        weekly_page_config,
+        target_date=report_date,
+        notification_prefix=config.report.team_prefix,
+    )
+
+
+def main():  # pragma: no cover
+    """Composition Root: 설정 로드 → 팩토리 호출 → 실행.
+
+    모드별 조립(`build_report_use_case`, `run_create_page_mode`)과 분기 헬퍼
+    (`parse_args`, `resolve_effective_settings`, `create_notifier`,
     `create_cli_executor`)는 단위 테스트로 검증된다.
     이 함수 자체는 글루 코드이므로 통합 테스트 영역으로 위임 (coverage 제외).
     """
     args = parse_args()
-
-    # 1. 설정 로드
     config = load_config_from_env(report_date=args.date)
     if config is None:
         print("Exiting due to configuration error.")
         return
 
     effective_model, effective_dry_run = resolve_effective_settings(args, config)
-
     report_date = config.report.report_date or date.today()
     print(f"Using CLI: {config.cli_type}")
     print(f"Model: {effective_model} | dry_run: {effective_dry_run}")
     print(f"Report date: {report_date.isoformat()}")
 
     if config.report_mode == "create_page":
-        from .infrastructure.adapters.confluence_adapter import ConfluenceAdapter
-        from .infrastructure.adapters.page_transformer import PageTransformer
-        from .application.create_page_use_case import CreateWeeklyPageUseCase
-        from .domain.models import WeeklyPageConfig
-
-        if not config.confluence_url or not config.confluence_user or not config.confluence_token:
-            print("ERROR: CONFLUENCE_URL, CONFLUENCE_USER, CONFLUENCE_TOKEN must be set.")
-            return
-
-        confluence = ConfluenceAdapter(
-            url=config.confluence_url,
-            user=config.confluence_user,
-            token=config.confluence_token,
-        )
-        transformer = PageTransformer()
-
-        # SlackAdapter 인스턴스화 (env 미설정 시 None — main.py가 primary 가드)
-        notifier = (
-            SlackAdapter(
-                token=config.slack_token,
-                channel=config.slack_channel_create_page,
-            )
-            if config.slack_channel_create_page and config.slack_token
-            else None
-        )
-
-        use_case = CreateWeeklyPageUseCase(
-            confluence=confluence,
-            transformer=transformer,
-            notifier=notifier,
-        )
-
-        weekly_page_config = WeeklyPageConfig(
-            space_key=config.report.space_key,
-            parent_page_id=config.parent_page_id,
-        )
-        success = use_case.execute(
-            weekly_page_config,
-            target_date=report_date,
-            notification_prefix=config.report.team_prefix,
-        )
-        if not success:
+        if not run_create_page_mode(config, report_date):
             print("ERROR: Failed to create weekly page.")
         return
 
-    elif config.report_mode == "weekly":
-        # weekly 전용 경로
-        cli_executor = create_cli_executor(
-            config.cli_type, command="weekly_report", model=effective_model
-        )
-        notifier = create_notifier(
-            dry_run=effective_dry_run,
-            slack_token=config.slack_token,
-            slack_channel=config.slack_channel_weekly,
-        )
-        use_case = GenerateReportUseCase(cli_executor, notifier, title_suffix="Weekly")
-    else:
-        # daily 경로
-        cli_executor = create_cli_executor(config.cli_type, model=effective_model)
-        notifier = create_notifier(
-            dry_run=effective_dry_run,
-            slack_token=config.slack_token,
-            slack_channel=config.slack_channel,
-        )
-        use_case = GenerateReportUseCase(cli_executor, notifier, title_suffix="Daily")
-
-    success = use_case.execute(config.report)
-    if not success:
+    use_case = build_report_use_case(config, effective_model, effective_dry_run)
+    if not use_case.execute(config.report):
         print("ERROR: Failed to generate and send report.")
 
 
