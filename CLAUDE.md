@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Weekly Report Generator - a Python application that automatically generates daily/weekly reports from Confluence pages using a pluggable CLI (Claude or Gemini), then sends reports to Slack. The report generation logic is externalized to `.claude/commands/daily_report.md` (daily mode) and `.claude/commands/weekly_report.md` (weekly mode). The mode is controlled by `REPORT_MODE` env var (`daily` | `weekly`).
+Weekly Report Generator - a Python application that automatically generates daily/weekly reports from Confluence pages using the Claude CLI (via claude-agent-sdk), then sends reports to Slack. The report generation logic is externalized to `.claude/commands/daily_report.md` (daily mode) and `.claude/commands/weekly_report.md` (weekly mode). The mode is controlled by `REPORT_MODE` env var (`daily` | `weekly` | `create_page`).
 
 ## Architecture
 
@@ -14,20 +14,22 @@ The application follows Clean Architecture with three layers:
 
 ```
 src/
-├── main.py                     # Composition Root (dependency injection, CLI factory, report_mode branching)
+├── main.py                     # Composition Root (CLI factory, mode factories: build_report_use_case, run_create_page_mode)
 ├── domain/                     # Core business logic (no external dependencies)
-│   ├── models.py               # DateRange, ReportConfig (space_key, team_name, team_prefix, mention_users), Report
-│   └── services.py             # Date calculation utilities (calculate_this_week_range, etc.)
+│   ├── models.py               # DateRange, ReportConfig (space_key, team_name, team_prefix, mention_users), WeeklyPageConfig, CreatePageStatus
+│   └── services.py             # Date calculation utilities, extract_report_content (report marker parsing)
 ├── application/                # Use cases (depends only on domain)
-│   ├── ports.py                # Protocol interfaces (CLIExecutorPort, ReportGeneratorPort, NotificationPort)
-│   ├── use_cases.py            # GenerateWeeklyReportUseCase (daily mode)
-│   └── weekly_summary_use_case.py  # GenerateWeeklySummaryUseCase (weekly mode)
+│   ├── ports.py                # Protocol interfaces (CLIExecutorPort, NotificationPort, ConfluencePort, PageTransformerPort)
+│   ├── use_cases.py            # GenerateReportUseCase (daily/weekly 공용, title_suffix로 모드 구분)
+│   └── create_page_use_case.py # CreateWeeklyPageUseCase (create_page mode)
 └── infrastructure/             # External system adapters
     ├── config.py               # Environment variable loading (AppConfig incl. report_mode, slack_channel_weekly)
     └── adapters/
-        ├── cli_executors.py    # CLI executors (execute /daily_report or /weekly_report via command param)
-        ├── report_generator.py # Report generation orchestrator
-        └── slack_adapter.py    # Slack API integration
+        ├── cli_executors.py    # ClaudeCLIExecutor (claude-agent-sdk, /daily_report or /weekly_report via command param)
+        ├── slack_adapter.py    # Slack API integration
+        ├── stdout_adapter.py   # Dry-run stdout output (NotificationPort)
+        ├── confluence_adapter.py  # Confluence REST API (create_page mode)
+        └── page_transformer.py # Weekly page HTML transformation (create_page mode)
 
 .claude/
 └── commands/
@@ -38,41 +40,45 @@ Makefile                        # Build commands (install, run, test, coverage, 
 ```
 
 ### Flow
-`main.py` branches on `config.report_mode` (`daily` | `weekly`):
+`main.py` branches on `config.report_mode` (`daily` | `weekly` | `create_page`):
 
 **Daily mode** (default):
-1. `main.py` loads config and assembles dependencies using factory pattern
-2. `ReportGenerator` receives config with `space_key`, `team_prefix`, and `mention_users`
-3. `CLIExecutor(command="daily_report")` executes `/daily_report SPACE_KEY "MENTION_USERS"` command
+1. `main.py` loads config and calls the `build_report_use_case(config, model, dry_run)` factory
+2. The factory creates `ClaudeCLIExecutor(command="daily_report")` and a notifier (`SlackAdapter`, or `StdoutAdapter` when dry-run), then assembles `GenerateReportUseCase(cli_executor, notifier, title_suffix="Daily")`
+3. `GenerateReportUseCase` executes `/daily_report SPACE_KEY "MENTION_USERS"` via the CLI executor
 4. `daily_report.md` automatically calculates date range and searches Confluence page
 5. `daily_report.md` extracts content, analyzes with sequential-thinking, formats report
-6. `GenerateWeeklyReportUseCase` builds title (e.g., `[BE][26.01.27_Daily]`) and sends to Slack
+6. `GenerateReportUseCase` extracts the final report with `extract_report_content` (domain service), builds title (e.g., `[BE][26.01.27_Daily]`) and sends it to the notifier
 7. `SlackAdapter` posts title as main message, report content as thread reply
 
 **Weekly mode** (`REPORT_MODE=weekly`):
-1. `main.py` creates `CLIExecutor(command="weekly_report")` and `GenerateWeeklySummaryUseCase`
+1. `build_report_use_case` creates `ClaudeCLIExecutor(command="weekly_report")` and assembles `GenerateReportUseCase` with `title_suffix="Weekly"`
 2. `SlackAdapter` is initialized with `slack_channel_weekly` (separate channel from daily)
-3. `CLIExecutor` executes `/weekly_report SPACE_KEY "MENTION_USERS"` command
+3. `GenerateReportUseCase` executes `/weekly_report SPACE_KEY "MENTION_USERS"` via the CLI executor
 4. `weekly_report.md` reads all daily pages from the week and generates a consolidated summary
-5. `GenerateWeeklySummaryUseCase` builds title (e.g., `[BE][26.01.27_Weekly]`) and sends to Slack
+5. `GenerateReportUseCase` builds title (e.g., `[BE][26.01.27_Weekly]`) and sends to Slack
+
+**Create page mode** (`REPORT_MODE=create_page`):
+1. `main.py` calls `run_create_page_mode(config, report_date)`, which assembles `ConfluenceAdapter`, `PageTransformer`, an optional `SlackAdapter`, and `CreateWeeklyPageUseCase`
+2. `CreateWeeklyPageUseCase` copies the previous week's page into the new week's page and (optionally) notifies Slack
 
 ### CLI Plugin Architecture
 
 The application uses a plugin architecture for CLI tools:
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  ReportGenerator │────▶│  CLIExecutorPort  │◀────│  ClaudeCLIExecutor │
-│  (Orchestrator)  │     │    (Protocol)     │     │  GeminiCLIExecutor │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-         │                                                 ▲
-         │                                                 │
-         ▼                                                 │
-┌─────────────────────┐                          ┌─────────────────┐
-│ ReportConfig        │                          │ create_cli_     │
-│ (space_key,         │                          │ executor()      │
-│  team_prefix,       │                          │ (Factory)       │
-│  mention_users)     │                          └─────────────────┘
+┌───────────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│ GenerateReportUseCase │────▶│  CLIExecutorPort  │◀────│  ClaudeCLIExecutor   │
+│ (daily/weekly 공용)    │     │    (Protocol)     │     │ (claude-agent-sdk)   │
+└───────────────────────┘     └──────────────────┘     └─────────────────────┘
+         │                                                       ▲
+         │                                                       │
+         ▼                                              ┌─────────────────┐
+┌─────────────────────┐                                │ create_cli_     │
+│ ReportConfig        │                                │ executor()      │
+│ (space_key,         │                                │ (Factory)       │
+│  team_prefix,       │                                └─────────────────┘
+│  mention_users)     │
 └─────────────────────┘
          │
          ▼
@@ -85,8 +91,8 @@ The application uses a plugin architecture for CLI tools:
 
 **Components:**
 - `CLIExecutorPort`: Protocol interface that all CLI executors must implement
-- `ClaudeCLIExecutor` / `GeminiCLIExecutor`: Execute CLI commands via `command` constructor param (default: `"daily_report"`)
-- `ReportGenerator`: Orchestrates CLI execution with config parameters
+- `ClaudeCLIExecutor`: Executes slash commands via claude-agent-sdk, switched by `command` constructor param (default: `"daily_report"`)
+- `GenerateReportUseCase`: Orchestrates CLI execution and notification (daily/weekly 공용, `title_suffix`로 모드 구분)
 - `ReportConfig`: Configuration containing `space_key`, `team_name`, `team_prefix`, `mention_users`
 - `daily_report.md`: Daily report generation (date calculation, Confluence search, formatting)
 - `weekly_report.md`: Weekly summary generation (reads all daily pages, consolidated report)
@@ -94,15 +100,14 @@ The application uses a plugin architecture for CLI tools:
 
 **Switching command at runtime:**
 - `ClaudeCLIExecutor(command="weekly_report")` makes the executor run `/weekly_report` instead of `/daily_report`
-- Same pattern applies to `GeminiCLIExecutor`
 
 **Adding a new CLI executor:**
-1. Create a new class in `cli_executors.py` implementing `execute(space_key: str, mention_users: str) -> str | None`
+1. Create a new class in `cli_executors.py` implementing `execute(space_key: str, mention_users: str = "", report_date: date | None = None) -> str | None`
 2. Accept `command: str = "daily_report"` in `__init__` for command switching
-3. Register it in the `executors` dict in `create_cli_executor()` in `main.py`
+3. Add a branch for it in `create_cli_executor()` in `main.py` (and extend the supported `cli_type` values)
 
 ### External Dependencies
-- **Claude CLI** or **Gemini CLI**: Must be installed separately and available in PATH. Executes `/daily_report` or `/weekly_report` command with Atlassian MCP
+- **Claude CLI**: Must be installed separately and available in PATH (invoked via claude-agent-sdk). Executes `/daily_report` or `/weekly_report` command with Atlassian MCP
 - **Slack SDK**: For posting reports to Slack channels
 
 ## Design Principles
@@ -139,7 +144,7 @@ Python 3.12+ 스타일 사용:
 
 ### Naming Conventions
 - **변수/함수**: snake_case (`calculate_last_week_range`)
-- **클래스**: PascalCase (`ReportGenerator`)
+- **클래스**: PascalCase (`SlackAdapter`)
 - **상수**: UPPER_SNAKE_CASE (`CLI_TYPE`)
 - **프라이빗**: 언더스코어 접두사 (`_parse_output`)
 

@@ -8,7 +8,7 @@ The script supports two modes: **daily** (default) and **weekly**.
 
 ### Daily Mode
 1.  **Calculates Date Range:** Automatically determines this week's date range (Monday to Friday).
-2.  **Generates Reports:** Uses the `/daily_report` command via CLI tool (Claude or Gemini) to:
+2.  **Generates Reports:** Uses the `/daily_report` command via the Claude CLI to:
     *   Search and read the Confluence page by space key and calculated page title.
     *   Extract team members' work content for today.
     *   Generate a C-Level formatted report.
@@ -27,7 +27,7 @@ Before running the script, you need to have the following installed:
 
 *   Python 3.x
 *   [uv](https://github.com/astral-sh/uv)
-*   [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) or [Gemini CLI](https://github.com/google-gemini/gemini-cli) (at least one required)
+*   [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)
 *   The required Python libraries as specified in `pyproject.toml`.
 
 ## Setup
@@ -56,7 +56,7 @@ Before running the script, you need to have the following installed:
     REPORT_MENTION_USERS="@홍길동 @김철수"  # Optional, users to mention on delay/hold items
 
     # CLI Configuration
-    CLI_TYPE="claude"  # Optional, "claude" (default) or "gemini"
+    CLI_TYPE="claude"  # Optional, "claude" (default, only supported value)
     CLI_MODEL="sonnet"  # Optional, Claude model alias (sonnet/haiku/opus). Default: sonnet
     DRY_RUN="0"  # Optional, "1" or "true" to print report to stdout without Slack
 
@@ -78,8 +78,8 @@ Before running the script, you need to have the following installed:
     *   `REPORT_TEAM_NAME`: (Optional) Team name to include in the report header.
     *   `REPORT_TEAM_PREFIX`: (Optional) Team prefix for Slack message title. Format: `[{prefix}][{YY.MM.DD}_Daily]` or `[{prefix}][{YY.MM.DD}_Weekly]`.
     *   `REPORT_MENTION_USERS`: (Optional) Users to mention when there are delayed or on-hold items.
-    *   `CLI_TYPE`: (Optional) CLI to use for report generation. Supported values: `claude` (default), `gemini`.
-    *   `CLI_MODEL`: (Optional) Claude model alias when `CLI_TYPE=claude`. Supported: `sonnet` (default & **recommended**), `haiku`, `opus`. Ignored for Gemini. CLI flag `--model` takes precedence. See [Recommended Model](#recommended-model) section below.
+    *   `CLI_TYPE`: (Optional) CLI to use for report generation. Supported value: `claude` (default).
+    *   `CLI_MODEL`: (Optional) Claude model alias. Supported: `sonnet` (default & **recommended**), `haiku`, `opus`. CLI flag `--model` takes precedence. See [Recommended Model](#recommended-model) section below.
     *   `DRY_RUN`: (Optional) Truthy values (`1`, `true`, `True`) print the report to stdout instead of sending to Slack. Useful for prompt experimentation. CLI flag `--dry-run` takes precedence.
     *   `REPORT_MODE`: (Optional) Report mode. `daily` (default) generates a single day report, `weekly` generates a weekly summary.
     *   `CONFLUENCE_URL`: (Required for create_page mode) Your Confluence instance URL.
@@ -123,7 +123,6 @@ uv run python -m src.main --date 2026-04-06
 
 # Explicitly specify CLI
 CLI_TYPE=claude uv run python -m src.main
-CLI_TYPE=gemini uv run python -m src.main
 
 # Choose Claude model (sonnet/haiku/opus). CLI flag overrides CLI_MODEL env.
 uv run python -m src.main --model sonnet
