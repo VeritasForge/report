@@ -9,10 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.infrastructure.adapters.cli_executors import (
-    ClaudeCLIExecutor,
-    GeminiCLIExecutor,
-)
+from src.infrastructure.adapters.cli_executors import ClaudeCLIExecutor
 from src.infrastructure.adapters.slack_adapter import SlackAdapter
 from src.infrastructure.adapters.stdout_adapter import StdoutAdapter
 from src.main import (
@@ -213,22 +210,14 @@ class TestCreateCliExecutor:
         assert executor._command == "weekly_report"
         assert executor._model == "haiku"
 
-    def test_should_return_gemini_executor_when_cli_type_is_gemini(self):
-        # Given/When
-        executor = create_cli_executor("gemini")
-        # Then
-        assert isinstance(executor, GeminiCLIExecutor)
-
-    # ---------- [Boundary] ----------
-    def test_should_pass_command_to_gemini_executor_and_ignore_model(self):
-        # Given: gemini는 model 인자를 무시
-        executor = create_cli_executor("gemini", command="weekly_report", model="sonnet")
-        # Then: command만 전달됨, _model 속성 없음
-        assert isinstance(executor, GeminiCLIExecutor)
-        assert executor._command == "weekly_report"
-        assert not hasattr(executor, "_model")
-
     # ---------- [Error] ----------
+    def test_should_raise_value_error_when_cli_type_is_gemini(self):
+        # Given: gemini 실행기는 제거됨
+        # When/Then: gemini 요청 시 ValueError 발생
+        with pytest.raises(ValueError) as exc_info:
+            create_cli_executor("gemini")
+        assert "Unknown CLI type: gemini" in str(exc_info.value)
+
     def test_should_raise_value_error_for_unknown_cli_type(self):
         # Given/When/Then
         with pytest.raises(ValueError, match="Unknown CLI type"):

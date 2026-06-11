@@ -1,16 +1,12 @@
 """main.py 통합 테스트"""
 
-import os
 import sys
 from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.infrastructure.adapters.cli_executors import (
-    ClaudeCLIExecutor,
-    GeminiCLIExecutor,
-)
+from src.infrastructure.adapters.cli_executors import ClaudeCLIExecutor
 from src.main import create_cli_executor, main, parse_args
 
 
@@ -25,15 +21,6 @@ class TestCreateCliExecutor:
 
         # Then: ClaudeCLIExecutor 인스턴스를 반환한다
         assert isinstance(executor, ClaudeCLIExecutor)
-
-    def test_should_create_gemini_executor(self):
-        # Given: cli_type이 "gemini"인 경우
-
-        # When: create_cli_executor를 호출하면
-        executor = create_cli_executor("gemini")
-
-        # Then: GeminiCLIExecutor 인스턴스를 반환한다
-        assert isinstance(executor, GeminiCLIExecutor)
 
     def test_should_raise_error_for_unknown_cli_type(self):
         # Given: 알 수 없는 cli_type
@@ -50,7 +37,6 @@ class TestCreateCliExecutor:
             create_cli_executor("invalid")
 
         assert "claude" in str(exc_info.value)
-        assert "gemini" in str(exc_info.value)
 
 
 class TestMain:
@@ -176,39 +162,6 @@ class TestMain:
 
         # Then: 유스케이스가 호출되었다
         mock_use_case.execute.assert_called_once()
-
-    @patch("sys.argv", ["src.main"])
-    @patch.dict(
-        os.environ,
-        {
-            "CONFLUENCE_SPACE_KEY": "MAI",
-            "CLI_TYPE": "gemini",
-        },
-        clear=True,
-    )
-    @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
-    @patch("src.main.create_cli_executor")
-    @patch("src.infrastructure.config.load_dotenv")
-    def test_should_use_gemini_when_configured(
-        self,
-        mock_load_dotenv,
-        mock_create_executor,
-        mock_report_generator,
-        mock_slack_adapter,
-    ):
-        # Given: CLI_TYPE이 gemini로 설정된 상황
-        mock_executor = MagicMock()
-        mock_create_executor.return_value = mock_executor
-        mock_generator = MagicMock()
-        mock_generator.generate.return_value = None
-        mock_report_generator.return_value = mock_generator
-
-        # When: main을 호출하면
-        main()
-
-        # Then: gemini 실행기가 생성된다 (Task 5: model은 Gemini에서 무시되지만 인자는 전달)
-        mock_create_executor.assert_called_once_with("gemini", model="sonnet")
 
     @patch("sys.argv", ["src.main", "--date", "2026-04-06"])
     @patch("src.main.SlackAdapter")

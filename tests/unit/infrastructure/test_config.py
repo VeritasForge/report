@@ -79,25 +79,6 @@ class TestLoadConfigFromEnv:
 
     @patch.dict(
         os.environ,
-        {
-            "CONFLUENCE_SPACE_KEY": "MAI",
-            "CLI_TYPE": "gemini",
-        },
-        clear=True,
-    )
-    @patch("src.infrastructure.config.load_dotenv")
-    def test_should_load_gemini_cli_type(self, mock_load_dotenv):
-        # Given: CLI_TYPE이 gemini로 설정된 상황
-
-        # When: 설정을 로드하면
-        config = load_config_from_env()
-
-        # Then: cli_type이 gemini로 설정된다
-        assert config is not None
-        assert config.cli_type == "gemini"
-
-    @patch.dict(
-        os.environ,
         {"CONFLUENCE_SPACE_KEY": "MAI"},
         clear=True,
     )

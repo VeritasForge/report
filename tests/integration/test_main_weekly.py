@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.infrastructure.adapters.cli_executors import ClaudeCLIExecutor, GeminiCLIExecutor
+from src.infrastructure.adapters.cli_executors import ClaudeCLIExecutor
 from src.infrastructure.config import AppConfig
 from src.domain.models import ReportConfig
 from src.main import main
@@ -104,40 +104,6 @@ class TestMainWeeklyMode:
         # Then: ReportGenerator가 weekly_report 커맨드로 생성된 executor를 받는다
         call_args = mock_report_generator.call_args[0][0]
         assert isinstance(call_args, ClaudeCLIExecutor)
-        assert call_args._command == "weekly_report"
-
-    @patch("sys.argv", ["src.main"])
-    @patch("src.main.GenerateWeeklySummaryUseCase")
-    @patch("src.main.SlackAdapter")
-    @patch("src.main.ReportGenerator")
-    @patch("src.main.load_config_from_env")
-    def test_should_use_gemini_executor_in_weekly_mode(
-        self,
-        mock_load_config,
-        mock_report_generator,
-        mock_slack_adapter,
-        mock_weekly_use_case_class,
-        sample_report_config,
-    ):
-        # Given: weekly mode + gemini CLI 설정
-        config = AppConfig(
-            report=sample_report_config,
-            slack_token="test-token",
-            slack_channel="test-channel",
-            cli_type="gemini",
-            report_mode="weekly",
-        )
-        mock_load_config.return_value = config
-        mock_use_case = MagicMock()
-        mock_use_case.execute.return_value = True
-        mock_weekly_use_case_class.return_value = mock_use_case
-
-        # When: main을 호출하면
-        main()
-
-        # Then: GeminiCLIExecutor가 weekly_report 커맨드로 생성된다
-        call_args = mock_report_generator.call_args[0][0]
-        assert isinstance(call_args, GeminiCLIExecutor)
         assert call_args._command == "weekly_report"
 
     @patch("sys.argv", ["src.main"])

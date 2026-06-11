@@ -1,4 +1,4 @@
-"""CLI 실행기 테스트 — Claude는 claude-agent-sdk mock, Gemini는 subprocess mock."""
+"""CLI 실행기 테스트 — Claude는 claude-agent-sdk mock."""
 
 from datetime import date
 from pathlib import Path
@@ -16,10 +16,7 @@ from claude_agent_sdk import (
     ToolUseBlock,
 )
 
-from src.infrastructure.adapters.cli_executors import (
-    ClaudeCLIExecutor,
-    GeminiCLIExecutor,
-)
+from src.infrastructure.adapters.cli_executors import ClaudeCLIExecutor
 
 
 # ----------------------------- 헬퍼 -----------------------------
@@ -295,99 +292,3 @@ class TestClaudeCLIExecutor:
             # Then: RuntimeError 전파
             with pytest.raises(RuntimeError, match="boom"):
                 ClaudeCLIExecutor().execute("MAI")
-
-
-# ----------------------------- Gemini subprocess 테스트 (변경 없음) -----------------------------
-
-class TestGeminiCLIExecutor:
-    """Gemini CLI 실행기 테스트 (subprocess 유지)."""
-
-    @pytest.fixture
-    def executor(self):
-        return GeminiCLIExecutor()
-
-    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
-    def test_should_execute_command_successfully(self, mock_popen, executor):
-        # Given
-        mock_process = MagicMock()
-        mock_process.communicate.return_value = ("Report content", "")
-        mock_process.returncode = 0
-        mock_popen.return_value = mock_process
-        # When
-        result = executor.execute("MAI")
-        # Then
-        assert result == "Report content"
-
-    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
-    def test_should_build_correct_command_without_mention_users(self, mock_popen, executor):
-        # Given
-        mock_process = MagicMock()
-        mock_process.communicate.return_value = ("", "")
-        mock_process.returncode = 0
-        mock_popen.return_value = mock_process
-        # When
-        executor.execute("MAI")
-        # Then
-        expected_command = ["gemini", "-p", "/daily_report MAI"]
-        mock_popen.assert_called_once()
-        actual_command = mock_popen.call_args[0][0]
-        assert actual_command == expected_command
-
-    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
-    def test_should_build_correct_command_with_mention_users(self, mock_popen, executor):
-        # Given
-        mock_process = MagicMock()
-        mock_process.communicate.return_value = ("", "")
-        mock_process.returncode = 0
-        mock_popen.return_value = mock_process
-        # When
-        executor.execute("MAI", "@홍길동")
-        # Then
-        expected_command = ["gemini", "-p", '/daily_report MAI "@홍길동"']
-        mock_popen.assert_called_once()
-        actual_command = mock_popen.call_args[0][0]
-        assert actual_command == expected_command
-
-    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
-    def test_should_return_none_when_command_fails(self, mock_popen, executor):
-        # Given
-        mock_process = MagicMock()
-        mock_process.communicate.return_value = ("", "Error")
-        mock_process.returncode = 1
-        mock_popen.return_value = mock_process
-        # When
-        result = executor.execute("MAI")
-        # Then
-        assert result is None
-
-    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
-    def test_should_return_none_when_cli_not_found(self, mock_popen, executor):
-        # Given
-        mock_popen.side_effect = FileNotFoundError()
-        # When
-        result = executor.execute("MAI")
-        # Then
-        assert result is None
-
-    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
-    def test_should_return_none_when_unexpected_error_occurs(self, mock_popen, executor):
-        # Given
-        mock_popen.side_effect = Exception("Unexpected error")
-        # When
-        result = executor.execute("MAI")
-        # Then
-        assert result is None
-
-    @patch("src.infrastructure.adapters.cli_executors.subprocess.Popen")
-    def test_should_build_command_with_report_date(self, mock_popen, executor):
-        # Given
-        mock_process = MagicMock()
-        mock_process.communicate.return_value = ("", "")
-        mock_process.returncode = 0
-        mock_popen.return_value = mock_process
-        # When
-        executor.execute("MAI", "@홍길동", report_date=date(2026, 4, 6))
-        # Then
-        expected_command = ["gemini", "-p", '/daily_report MAI "@홍길동" --date 2026-04-06']
-        actual_command = mock_popen.call_args[0][0]
-        assert actual_command == expected_command

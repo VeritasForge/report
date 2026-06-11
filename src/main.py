@@ -4,7 +4,7 @@ from datetime import date, datetime
 from .application.ports import CLIExecutorPort, NotificationPort
 from .application.use_cases import GenerateWeeklyReportUseCase
 from .application.weekly_summary_use_case import GenerateWeeklySummaryUseCase
-from .infrastructure.adapters.cli_executors import ClaudeCLIExecutor, GeminiCLIExecutor
+from .infrastructure.adapters.cli_executors import ClaudeCLIExecutor
 from .infrastructure.adapters.report_generator import ReportGenerator
 from .infrastructure.adapters.slack_adapter import SlackAdapter
 from .infrastructure.adapters.stdout_adapter import StdoutAdapter
@@ -16,15 +16,10 @@ def create_cli_executor(
     command: str = "daily_report",
     model: str | None = None,
 ) -> CLIExecutorPort:
-    """CLI 타입에 따라 적절한 실행기 생성.
-
-    Claude는 model 파라미터 지원, Gemini는 미지원 (본 PR 범위 밖).
-    """
+    """CLI 타입에 따라 적절한 실행기 생성."""
     if cli_type == "claude":
         return ClaudeCLIExecutor(command=command, model=model)
-    if cli_type == "gemini":
-        return GeminiCLIExecutor(command=command)
-    raise ValueError(f"Unknown CLI type: {cli_type}. Supported: ['claude', 'gemini']")
+    raise ValueError(f"Unknown CLI type: {cli_type}. Supported: ['claude']")
 
 
 def parse_args() -> argparse.Namespace:
