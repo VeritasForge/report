@@ -9,6 +9,7 @@ from src.domain.services import (
     calculate_last_week_range,
     calculate_this_week_range,
     convert_markdown_links_to_slack,
+    extract_report_content,
     format_confluence_page_title,
 )
 
@@ -236,3 +237,40 @@ Some notes here
         assert (
             "<https://jira.example.com/TICKET-456|[TICKET-456] Review pending>" in result
         )
+
+
+class TestExtractReportContent:
+    """리포트 마커 추출 (구 ReportGenerator._parse_output 이동분)"""
+
+    def test_should_extract_from_marker_when_analysis_precedes(self):
+        # [Happy] Given: 중간 분석 텍스트 + 마커 + 리포트 본문
+        output = "분석 과정 텍스트...\n*\U0001f4ca 일정 요약*\n- 항목1"
+        # When
+        result = extract_report_content(output)
+        # Then: 마커부터 끝까지 추출
+        assert result == "*\U0001f4ca 일정 요약*\n- 항목1"
+
+    @pytest.mark.parametrize("marker", [
+        "*\U0001f4ca 일정 요약*", "*:bar_chart: 일정 요약*",
+        "\U0001f4ca 일정 요약", ":bar_chart: 일정 요약",
+        "*\U0001f4ca 주간 요약", "*:bar_chart: 주간 요약",
+    ])
+    def test_should_recognize_all_markers(self, marker):
+        # [Happy] Given: 각 마커 변형
+        output = f"prefix\n{marker} 본문"
+        # When/Then
+        assert extract_report_content(output).startswith(marker)
+
+    def test_should_return_whole_content_when_no_marker(self):
+        # [Boundary] Given: 마커 없는 출력
+        output = "마커 없는 일반 텍스트"
+        # When/Then: 전체를 그대로 반환
+        assert extract_report_content(output) == "마커 없는 일반 텍스트"
+
+    def test_should_return_empty_string_for_empty_input(self):
+        # [Boundary] Given: 빈 문자열
+        assert extract_report_content("") == ""
+
+    def test_should_strip_surrounding_whitespace(self):
+        # [Boundary] Given: 앞뒤 공백
+        assert extract_report_content("  본문  ") == "본문"

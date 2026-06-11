@@ -31,6 +31,27 @@ def format_confluence_page_title(date_range: DateRange) -> str:
     return f"{start.strftime('%Y.%m.%d')} ~ {end.strftime('%m.%d')}"
 
 
+_REPORT_MARKERS = (
+    "*\U0001f4ca 일정 요약*", "*:bar_chart: 일정 요약*",
+    "\U0001f4ca 일정 요약", ":bar_chart: 일정 요약",
+    "*\U0001f4ca 주간 요약", "*:bar_chart: 주간 요약",
+)
+
+
+def extract_report_content(output: str) -> str:
+    """CLI 출력에서 최종 리포트만 추출.
+
+    리포트는 '📊 일정 요약' 등 마커로 시작한다. 중간 분석 과정이
+    포함된 경우 마커 시작점부터만 추출하고, 마커가 없으면 전체 반환.
+    """
+    content = output.strip()
+    for marker in _REPORT_MARKERS:
+        idx = content.find(marker)
+        if idx != -1:
+            return content[idx:].strip()
+    return content
+
+
 def convert_markdown_links_to_slack(text: str) -> str:
     """
     마크다운 링크를 Slack 형식으로 변환
