@@ -1,0 +1,21 @@
+# report 스케줄 작업 — repo에서 관리: deploy/report.crontab.tmpl
+# 렌더: make cron-render   설치: make cron-install (기존 crontab 백업 후 덮어쓰기)
+#
+# [타임존] Debian/Ubuntu 기본 cron은 CRON_TZ로 "발화 시각"을 못 바꾼다.
+#   아래 시각은 Asia/Seoul(KST)이며 서버 타임존이 Asia/Seoul이라고 가정한다:
+#     sudo timedatectl set-timezone Asia/Seoul && sudo systemctl restart cron
+#   시스템 TZ를 못 바꾸면 각 줄의 (UTC: ...) 주석 시각을 쓰면 된다 (KST=UTC+9, DST 없음).
+#
+# [환경] cron은 PATH가 빈약하고 cwd=$HOME 이다. PATH를 명시하고 repo로 cd 해야
+#   python-dotenv가 .env를 찾는다. claude 인증(~/.claude)은 이 crontab 소유자 = `claude auth login`
+#   을 실행한 사용자여야 동작한다. stdout/stderr는 logs/로 남긴다 (cron 메일은 보통 미설정).
+PATH=__UVBIN_DIR__:/usr/local/bin:/usr/bin:/bin
+
+# Daily 리포트 — 월~금 12:00 KST        (UTC: 0 3 * * 1-5)
+0 12 * * 1-5 cd __REPO_DIR__ && CLI_MODEL=sonnet uv run python -m src.main >> __REPO_DIR__/logs/daily.log 2>&1
+
+# Weekly 리포트 — 월 12:00 KST          (UTC: 0 3 * * 1)
+0 12 * * 1 cd __REPO_DIR__ && CLI_MODEL=sonnet REPORT_MODE=weekly uv run python -m src.main >> __REPO_DIR__/logs/weekly.log 2>&1
+
+# 다음 주 페이지 생성 — 월 07:00 KST     (UTC: 0 22 * * 0)
+0 7 * * 1 cd __REPO_DIR__ && CLI_MODEL=sonnet REPORT_MODE=create_page uv run python -m src.main >> __REPO_DIR__/logs/create_page.log 2>&1

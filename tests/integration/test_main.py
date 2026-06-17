@@ -293,6 +293,102 @@ class TestMainCreatePageMode:
             assert "ERROR: Failed to create weekly page." in captured.out
 
 
+class TestMainExitCode:
+    """main() 종료 코드 — Task 7 (무인 cron 실패 가시성)"""
+
+    @patch("sys.argv", ["src.main"])
+    @patch("src.main.GenerateReportUseCase")
+    @patch("src.main.SlackAdapter")
+    @patch("src.main.load_config_from_env")
+    def test_should_return_0_on_daily_success(
+        self, mock_load_config, mock_slack_adapter, mock_use_case_class, sample_report_config
+    ):
+        # [Happy] Given: 정상 설정 + 유스케이스 성공
+        from src.infrastructure.config import AppConfig
+
+        mock_load_config.return_value = AppConfig(
+            report=sample_report_config, slack_token="t", slack_channel="c", cli_type="claude"
+        )
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = True
+        mock_use_case_class.return_value = mock_use_case
+
+        # When/Then: 성공은 0을 반환한다
+        assert main() == 0
+
+    @patch("sys.argv", ["src.main", "--dry-run"])
+    @patch("src.main.GenerateReportUseCase")
+    @patch("src.main.StdoutAdapter")
+    @patch("src.main.load_config_from_env")
+    def test_should_return_0_on_dry_run_success(
+        self, mock_load_config, mock_stdout_adapter, mock_use_case_class, sample_report_config
+    ):
+        # [Boundary] Given: dry-run(falsy 분기 반대편) + 성공
+        from src.infrastructure.config import AppConfig
+
+        mock_load_config.return_value = AppConfig(
+            report=sample_report_config, slack_token="", slack_channel="", cli_type="claude"
+        )
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = True
+        mock_use_case_class.return_value = mock_use_case
+
+        # When/Then: dry-run 성공도 0
+        assert main() == 0
+
+    @patch("sys.argv", ["src.main"])
+    @patch("src.main.load_config_from_env")
+    def test_should_return_1_when_config_load_fails(self, mock_load_config):
+        # [Error] Given: 설정 로드 실패(None)
+        mock_load_config.return_value = None
+
+        # When/Then: 1을 반환한다
+        assert main() == 1
+
+    @patch("sys.argv", ["src.main"])
+    @patch("src.main.GenerateReportUseCase")
+    @patch("src.main.SlackAdapter")
+    @patch("src.main.load_config_from_env")
+    def test_should_return_1_on_use_case_failure(
+        self, mock_load_config, mock_slack_adapter, mock_use_case_class, sample_report_config
+    ):
+        # [Error] Given: 유스케이스 실패(False)
+        from src.infrastructure.config import AppConfig
+
+        mock_load_config.return_value = AppConfig(
+            report=sample_report_config, slack_token="t", slack_channel="c", cli_type="claude"
+        )
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = False
+        mock_use_case_class.return_value = mock_use_case
+
+        # When/Then: 1을 반환한다
+        assert main() == 1
+
+    @patch("sys.argv", ["src.main"])
+    @patch("src.main.load_config_from_env")
+    def test_should_return_1_on_create_page_failure(self, mock_load_config):
+        # [Error] Given: create_page 모드 실행 실패
+        from src.infrastructure.config import AppConfig
+        from src.domain.models import ReportConfig
+
+        mock_load_config.return_value = AppConfig(
+            report=ReportConfig(space_key="MAI", team_name="", team_prefix="", mention_users=""),
+            slack_token="", slack_channel="", cli_type="claude", report_mode="create_page",
+            confluence_url="https://example.atlassian.net", confluence_user="u@e.com",
+            confluence_token="tok", parent_page_id="111",
+        )
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = False
+        with patch("src.infrastructure.adapters.confluence_adapter.ConfluenceAdapter"), \
+             patch("src.infrastructure.adapters.page_transformer.PageTransformer"), \
+             patch("src.application.create_page_use_case.CreateWeeklyPageUseCase") as m:
+            m.return_value = mock_use_case
+
+            # When/Then: 1을 반환한다
+            assert main() == 1
+
+
 class TestParseArgs:
     """CLI 인자 파싱 테스트"""
 

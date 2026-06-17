@@ -1,10 +1,10 @@
 # Weekly Report Generator
 
-This script automatically generates a weekly report by summarizing content from Confluence pages and associated JIRA tickets, and then sends the report to a specified Slack channel.
+This script automatically generates a daily/weekly report by summarizing content from Confluence pages and associated JIRA tickets, and then sends the report to a specified Slack channel.
 
 ## Description
 
-The script supports two modes: **daily** (default) and **weekly**.
+The script supports three modes: **daily** (default), **weekly**, and **create_page**.
 
 ### Daily Mode
 1.  **Calculates Date Range:** Automatically determines this week's date range (Monday to Friday).
@@ -23,72 +23,109 @@ The script supports two modes: **daily** (default) and **weekly**.
 
 ## Prerequisites
 
-Before running the script, you need to have the following installed:
+Install these on the server (see **Installation (Linux server)** below for the full flow):
 
-*   Python 3.x
+*   Python 3.12+
 *   [uv](https://github.com/astral-sh/uv)
-*   [Claude CLI](https://docs.anthropic.com/en/docs/claude-code)
-*   The required Python libraries as specified in `pyproject.toml`.
+*   Node.js + npm (required by the Claude CLI and the `sequential-thinking` MCP server)
+*   [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) — **authenticated** (`claude auth login`)
+*   `mcp-atlassian` MCP server (`uv tool install mcp-atlassian`), **registered with the Claude CLI**
+*   The Python libraries in `pyproject.toml` (installed via `make setup`)
+
+> ⚠️ The report's Confluence/JIRA **reads** (daily/weekly) go through the `mcp-atlassian` MCP server configured in the Claude CLI (`~/.claude.json`), **not** via `.env`. This is the most commonly missed step — `make preflight` checks for it. (The `CONFLUENCE_*` keys in `.env` are only for the `create_page` mode's REST calls.)
+
+## Installation (Linux server)
+
+Deterministic steps are automated in the `Makefile`; secret/interactive steps are manual. Target: a fresh Debian/Ubuntu (apt) server.
+
+**1. System dependencies** (one-time; may need sudo — intentionally NOT done by `make`):
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh            # uv
+sudo apt-get update && sudo apt-get install -y nodejs npm  # Node.js
+npm install -g @anthropic-ai/claude-code                   # Claude CLI
+uv tool install mcp-atlassian                              # Atlassian MCP server
+```
+
+**2. Get the code + scaffold** (no sudo):
+```bash
+git clone <repo> && cd report
+make setup        # uv sync --locked + create .env (from .env.example) + create logs/
+```
+
+**3. Fill secrets** — edit `.env` (Slack token/channels, `CONFLUENCE_SPACE_KEY`, and the `create_page` Confluence REST creds). Each key is documented in **Setup** below.
+
+**4. Authenticate the Claude CLI** (interactive; stores creds under `~/.claude`):
+```bash
+make auth         # = claude auth login    (alternative for CI: claude setup-token)
+```
+
+**5. Register MCP servers** at user scope (you enter the tokens; nothing is committed):
+```bash
+make mcp-setup    # prints the exact `claude mcp add ...` command — fill the values and run it
+chmod 600 ~/.claude.json   # tokens are stored in plaintext
+```
+
+**6. Verify:**
+```bash
+make preflight    # 8-point doctor: deps, .env, claude auth, MCP registration
+make smoke        # E2E gate: dry-run exercising Claude + MCP + Confluence read (no Slack)
+```
+If `make smoke` prints a report to stdout, the install is complete.
+
+**7. Timezone** (schedules below are Asia/Seoul; Debian/Ubuntu cron uses the **system** timezone — it ignores `CRON_TZ` for firing time):
+```bash
+sudo timedatectl set-timezone Asia/Seoul && sudo systemctl restart cron
+```
+
+Then schedule the jobs — see **Scheduling (cron)** below.
 
 ## Setup
 
-1.  **Create Virtual Environemtn and Install Dependencies:**
-    ```bash
-    uv sync --locked
-    ```
+Environment variables live in `.env` (created by `make setup`; never committed). `.env.example` is the template and `src/infrastructure/config.py` is the authoritative key list.
 
-2.  **Set Environment Variables:**
-    Create a `.env` file in the root of the project and add the following variables:
+```
+# Slack Configuration
+SLACK_TOKEN="YOUR_SLACK_BOT_TOKEN"
+SLACK_CHANNEL="YOUR_SLACK_CHANNEL_ID"
+SLACK_CHANNEL_WEEKLY="YOUR_WEEKLY_SLACK_CHANNEL_ID"  # Optional, separate channel for weekly reports
+SLACK_CHANNEL_CREATE_PAGE="YOUR_CREATE_PAGE_SLACK_CHANNEL_ID"  # Optional, separate channel for create_page mode notifications
 
-    ```
-    # Slack Configuration
-    SLACK_TOKEN="YOUR_SLACK_BOT_TOKEN"
-    SLACK_CHANNEL="YOUR_SLACK_CHANNEL_ID"
-    SLACK_CHANNEL_WEEKLY="YOUR_WEEKLY_SLACK_CHANNEL_ID"  # Optional, separate channel for weekly reports
-    SLACK_CHANNEL_CREATE_PAGE="YOUR_CREATE_PAGE_SLACK_CHANNEL_ID"  # Optional, separate channel for create_page mode notifications
+# Confluence Configuration
+CONFLUENCE_SPACE_KEY="MAI"
 
-    # Confluence Configuration
-    CONFLUENCE_SPACE_KEY="MAI"
+# Report Configuration
+REPORT_TEAM_NAME="Backend Team"  # Optional, used in report header
+REPORT_TEAM_PREFIX="BE"  # Optional, team prefix for Slack message title (e.g., [BE][26.01.27_Daily])
+REPORT_MENTION_USERS="@홍길동 @김철수"  # Optional, users to mention on delay/hold items
 
-    # Report Configuration
-    REPORT_TEAM_NAME="Backend Team"  # Optional, used in report header
-    REPORT_TEAM_PREFIX="BE"  # Optional, team prefix for Slack message title (e.g., [BE][26.01.27_Daily])
-    REPORT_MENTION_USERS="@홍길동 @김철수"  # Optional, users to mention on delay/hold items
+# CLI Configuration
+CLI_TYPE="claude"  # Optional, "claude" (default, only supported value)
+CLI_MODEL="sonnet"  # Optional, Claude model alias (sonnet/haiku/opus). Default: sonnet
+DRY_RUN="0"  # Optional, "1" or "true" to print report to stdout without Slack
 
-    # CLI Configuration
-    CLI_TYPE="claude"  # Optional, "claude" (default, only supported value)
-    CLI_MODEL="sonnet"  # Optional, Claude model alias (sonnet/haiku/opus). Default: sonnet
-    DRY_RUN="0"  # Optional, "1" or "true" to print report to stdout without Slack
+# Report Mode
+REPORT_MODE="daily"  # Optional, "daily" (default), "weekly", or "create_page"
 
-    # Report Mode
-    REPORT_MODE="daily"  # Optional, "daily" (default) or "weekly"
+# Confluence API Configuration (for create_page mode)
+CONFLUENCE_URL="https://your-instance.atlassian.net"
+CONFLUENCE_USER="your-email@company.com"
+CONFLUENCE_TOKEN="your-api-token"
+PARENT_PAGE_ID="your-parent-page-id"
+```
 
-    # Confluence API Configuration (for create_page mode)
-    CONFLUENCE_URL="https://your-instance.atlassian.net"
-    CONFLUENCE_USER="your-email@company.com"
-    CONFLUENCE_TOKEN="your-api-token"
-    PARENT_PAGE_ID="your-parent-page-id"
-    ```
+*   `SLACK_TOKEN`: Your Slack bot token with `chat:write` permission.
+*   `SLACK_CHANNEL`: The ID of the Slack channel where daily reports will be sent.
+*   `SLACK_CHANNEL_WEEKLY`: (Optional) Channel for weekly reports. If not set, weekly reports are skipped.
+*   `SLACK_CHANNEL_CREATE_PAGE`: (Optional) Channel for `create_page` notifications. If not set, notifications are skipped — page creation continues normally.
+*   `CONFLUENCE_SPACE_KEY`: The Confluence space key where the daily pages live. **Required** (the app exits with code 1 if unset).
+*   `REPORT_TEAM_NAME` / `REPORT_TEAM_PREFIX` / `REPORT_MENTION_USERS`: (Optional) Report header, Slack-title prefix, and delay/hold mentions.
+*   `CLI_TYPE`: (Optional) `claude` (default, only supported value).
+*   `CLI_MODEL`: (Optional) `sonnet` (default & **recommended**), `haiku`, `opus`. CLI flag `--model` takes precedence. See [Recommended Model](#recommended-model).
+*   `DRY_RUN`: (Optional) Truthy (`1`, `true`) prints to stdout instead of Slack. CLI flag `--dry-run` takes precedence.
+*   `REPORT_MODE`: (Optional) `daily` (default), `weekly`, or `create_page`.
+*   `CONFLUENCE_URL` / `CONFLUENCE_USER` / `CONFLUENCE_TOKEN` / `PARENT_PAGE_ID`: (Required for `create_page` mode) Instance URL, user email, API token, and parent page ID. `CONFLUENCE_URL` may omit the `/wiki` suffix — the adapter appends it. (This is the app's REST config; the `mcp-atlassian` server has its own `CONFLUENCE_URL`, which **does** need `/wiki`.)
 
-    *   `SLACK_TOKEN`: Your Slack bot token with `chat:write` permission.
-    *   `SLACK_CHANNEL`: The ID of the Slack channel where daily reports will be sent.
-    *   `SLACK_CHANNEL_WEEKLY`: (Optional) The ID of the Slack channel for weekly reports. If not set, weekly reports are skipped (empty channel).
-    *   `SLACK_CHANNEL_CREATE_PAGE`: (Optional) The ID of the Slack channel for `create_page` mode notifications (success/already-exists/failure). If not set, notifications are skipped — page creation continues normally.
-    *   `CONFLUENCE_SPACE_KEY`: The Confluence space key where weekly pages are stored.
-    *   `REPORT_TEAM_NAME`: (Optional) Team name to include in the report header.
-    *   `REPORT_TEAM_PREFIX`: (Optional) Team prefix for Slack message title. Format: `[{prefix}][{YY.MM.DD}_Daily]` or `[{prefix}][{YY.MM.DD}_Weekly]`.
-    *   `REPORT_MENTION_USERS`: (Optional) Users to mention when there are delayed or on-hold items.
-    *   `CLI_TYPE`: (Optional) CLI to use for report generation. Supported value: `claude` (default).
-    *   `CLI_MODEL`: (Optional) Claude model alias. Supported: `sonnet` (default & **recommended**), `haiku`, `opus`. CLI flag `--model` takes precedence. See [Recommended Model](#recommended-model) section below.
-    *   `DRY_RUN`: (Optional) Truthy values (`1`, `true`, `True`) print the report to stdout instead of sending to Slack. Useful for prompt experimentation. CLI flag `--dry-run` takes precedence.
-    *   `REPORT_MODE`: (Optional) Report mode. `daily` (default) generates a single day report, `weekly` generates a weekly summary.
-    *   `CONFLUENCE_URL`: (Required for create_page mode) Your Confluence instance URL.
-    *   `CONFLUENCE_USER`: (Required for create_page mode) Your Confluence user email.
-    *   `CONFLUENCE_TOKEN`: (Required for create_page mode) Your Confluence API token.
-    *   `PARENT_PAGE_ID`: (Required for create_page mode) The parent page ID where weekly pages are created.
-
-3.  **Configure Report Commands:**
-    The report generation logic is defined in `.claude/commands/daily_report.md` (daily mode) and `.claude/commands/weekly_report.md` (weekly mode). These commands are automatically executed by the CLI with the calculated date range.
+The report generation logic itself is defined in `.claude/commands/daily_report.md` and `.claude/commands/weekly_report.md`, executed by the Claude CLI.
 
 ## Recommended Model
 
@@ -121,68 +158,28 @@ uv run python -m src.main
 uv run python -m src.main --date 2026-04-06
 # or: make run DATE=2026-04-06
 
-# Explicitly specify CLI
-CLI_TYPE=claude uv run python -m src.main
-
 # Choose Claude model (sonnet/haiku/opus). CLI flag overrides CLI_MODEL env.
 uv run python -m src.main --model sonnet
-CLI_MODEL=haiku uv run python -m src.main
 # or: make run MODEL=sonnet
 
 # Dry-run (stdout only, no Slack). CLI flag overrides DRY_RUN env.
 uv run python -m src.main --model sonnet --dry-run
-DRY_RUN=1 uv run python -m src.main --model sonnet
-# or: make dry-run
-# or: make dry-run MODEL=sonnet DATE=2026-04-06
+# or: make dry-run        (also: make smoke — the install-complete gate)
 
 # Run weekly report
-REPORT_MODE=weekly uv run python -m src.main
-# or: make weekly
-
-# Run weekly report for a specific week
-make weekly DATE=2026-04-06
+make weekly
+# or: make weekly DATE=2026-04-06
 
 # Create next week's Confluence page
 make create-page
-# or: REPORT_MODE=create_page uv run python -m src.main
-
-# Create page for a specific week
-make create-page DATE=2026-04-13
+# or: make create-page DATE=2026-04-13
 ```
 
-The script will then generate the report and post it to the specified Slack channel.
+The script generates the report and posts it to the configured Slack channel. On failure it exits with a non-zero code (so cron/monitoring can detect it).
 
-### Cronicle Management
+### Pinning the model in scheduled jobs
 
-```bash
-make cronicle-status   # Check if Cronicle is running
-make cronicle-start    # Start Cronicle and open web UI
-make cronicle-stop     # Stop Cronicle
-make cronicle-restart  # Restart Cronicle and open web UI
-make cronicle-open     # Open web UI in browser
-```
-
-### Cronicle Event Scripts — Pin Sonnet
-
-When updating Cronicle events (Schedule tab), add `CLI_MODEL=sonnet` to each event's shell script to pin the recommended model. Example for the Daily Report event:
-
-```sh
-#!/bin/sh
-cd /Users/cjynim/lab/report
-CLI_MODEL=sonnet uv run python -m src.main
-```
-
-Same pattern for Weekly Report and Create Weekly Page:
-
-```sh
-# Weekly Report
-CLI_MODEL=sonnet REPORT_MODE=weekly uv run python -m src.main
-
-# Create Weekly Page
-CLI_MODEL=sonnet REPORT_MODE=create_page uv run python -m src.main
-```
-
-Note: If `.env` already has `CLI_MODEL=sonnet`, this is redundant but harmless and makes the intent explicit at the schedule level.
+The cron template (`deploy/report.crontab.tmpl`) already prefixes each job with `CLI_MODEL=sonnet`. If `.env` also sets `CLI_MODEL=sonnet`, that's redundant but harmless and makes the intent explicit at the schedule level.
 
 ## Regression Testing (Prompt Accuracy)
 
@@ -234,7 +231,7 @@ Adding a new ground truth fixture (different date) is straightforward: copy `gro
 
 ### Reusable Skill
 
-This regression testing workflow is also packaged as a reusable Claude Code skill at `.claude/skills/prompt-regression-testing/`. To apply the same workflow to a different project (different prompt, different domain), copy the skill directory and its `templates/` to the target project, adapt the fixtures and rubric patterns, and follow the `SKILL.md` step-by-step guide. The skill captures lessons learned from this project — including model cost/time estimates, common scoring pitfalls, and the company-info generalization pattern.
+This regression testing workflow is also packaged as a reusable Claude Code skill at `.claude/skills/prompt-regression-testing/`. To apply the same workflow to a different project, copy the skill directory and its `templates/` to the target project, adapt the fixtures and rubric patterns, and follow the `SKILL.md` step-by-step guide.
 
 ## Testing
 
@@ -248,146 +245,40 @@ uv sync --all-extras
 make test
 # or: uv run pytest
 
-# Show coverage report (after running tests with --cov)
-make coverage
-# or: uv run coverage report --show-missing
-
 # Run with coverage report
 uv run pytest --cov=src --cov-report=term-missing
+
+# Show coverage report
+make coverage
 
 # Run specific test layer
 uv run pytest tests/unit/domain/
 uv run pytest tests/integration/
 ```
 
-## Scheduling
+## Scheduling (cron)
 
-This project uses [Cronicle](https://cronicle.net/) for scheduling. Cronicle provides a web-based UI with execution history and notifications.
-
-### 1. Install Cronicle
-
-You install Cronicle the following command.
-
-> curl -s https://raw.githubusercontent.com/jhuckaby/Cronicle/master/bin/install.js | sudo node
-
-and then, you'll see the follwing message.
-
-```sh
-❯ curl -s https://raw.githubusercontent.com/jhuckaby/Cronicle/master/bin/install.js | sudo node                                                      (base)
-
-Cronicle Installer v1.5
-Copyright (c) 2015 - 2022 PixlCore.com. MIT Licensed.
-Log File: /opt/cronicle/logs/install.log
-
-Fetching release list...
-Installing Cronicle v0.9.99...
-Installing dependencies...
-Running post-install script...
-
-Welcome to Cronicle!
-First time installing?  You should configure your settings in '/opt/cronicle/conf/config.json'.
-Next, if this is a master server, type: '/opt/cronicle/bin/control.sh setup' to init storage.
-Then, to start the service, type: '/opt/cronicle/bin/control.sh start'.
-For full docs, please visit: http://github.com/jhuckaby/Cronicle
-Enjoy!
-
-Installation complete.
-```
-
-### 2. Setup
-
-Change ownership so Cronicle runs as your user (not root):
+Scheduling is managed as code: a versioned crontab **template** is rendered with the real install paths and installed into the user crontab. No external scheduler is required.
 
 ```bash
-sudo chown -R $(whoami):staff /opt/cronicle
+make cron-render     # render deploy/report.crontab.tmpl -> deploy/report.crontab (real paths)
+make cron-show       # review the rendered file and the currently-installed crontab
+make cron-install    # back up the existing crontab, then install the rendered one
+make cron-uninstall  # restore the backed-up crontab
 ```
 
-Then initialize storage:
+The template (`deploy/report.crontab.tmpl`) schedules three jobs (Asia/Seoul):
 
-> /opt/cronicle/bin/control.sh setup
->
-- Create the storage system (`/opt/cronicle/data`)
-- Create user information in the storage system's `/opt/cronicle/data/users` path
+| Job | Schedule (KST) | Command |
+|-----|----------------|---------|
+| Daily report | Mon–Fri 12:00 | `CLI_MODEL=sonnet uv run python -m src.main` |
+| Weekly report | Mon 12:00 | `... REPORT_MODE=weekly ...` |
+| Create next week's page | Mon 07:00 | `... REPORT_MODE=create_page ...` |
 
-User information can be checked through the following file, allowing you to confirm UI login details.
+**Important notes (Debian/Ubuntu cron):**
 
-> Initial Password: admin
-
-```sh
-❯ tree /opt/cronicle/data/users                                                                           (base) 
-/opt/cronicle/data/users
-└── 34
-    └── 68
-        └── bc
-            └── 3468bc0c4e5f6aa06c7aee62212ac18f.json
-            
-❯ cat /opt/cronicle/data/users/34/68/bc/3468bc0c4e5f6aa06c7aee62212ac18f.json | jq .                      (base) 
-{
-  "username": "admin",
-  "password": "",
-  "full_name": "Administrator",
-  "email": "admin@cronicle.com",
-  "active": 1,
-  "modified": 1761699616,
-  "created": 1761699616,
-  "salt": "salty",
-  "privileges": {
-    "admin": 1
-  }
-}
-
-```
-
-### 3. Start
-
-Execute the following script to start the Web UI.
-
-> /opt/cronicle/bin/control.sh start
-
-```sh
-❯ /opt/cronicle/bin/control.sh start                                                                      (base)
-/opt/cronicle/bin/control.sh start: Starting up Cronicle Server...
-/opt/cronicle/bin/control.sh start: Cronicle Server started
-```
-
-After execution, access http://localhost:3012 and log in with admin/admin!
-
-### 4. Set up Schedule Events
-
-Navigate to the Schedule tab and create events using the Add Event button.
-
-#### Daily Report
-
-- **Title**: `Daily Report`
-- **Timing**: Mon–Fri, 12:00, Asia/Seoul
-- **Plugin**: Shell Script
-- **Script**:
-```sh
-#!/bin/sh
-cd /Users/cjynim/lab/report
-uv run python -m src.main
-```
-
-#### Weekly Report
-
-- **Title**: `Weekly Report`
-- **Timing**: Monday, 12:00, Asia/Seoul
-- **Plugin**: Shell Script
-- **Script**:
-```sh
-#!/bin/sh
-cd /Users/cjynim/lab/report
-REPORT_MODE=weekly uv run python -m src.main
-```
-
-#### Create Weekly Page
-
-- **Title**: `Create Weekly Page`
-- **Timing**: Monday, 07:00, Asia/Seoul
-- **Plugin**: Shell Script
-- **Script**:
-```sh
-#!/bin/sh
-cd /Users/cjynim/lab/report
-REPORT_MODE=create_page uv run python -m src.main
-```
+- **Timezone:** stock `cron` ignores `CRON_TZ` for firing time and uses the **system** timezone. Set it once: `sudo timedatectl set-timezone Asia/Seoul && sudo systemctl restart cron`. If you cannot change the system TZ, use the `(UTC: …)` times noted in each line of the template (KST = UTC+9, no DST).
+- **Auth/HOME:** each job `cd`s into the repo (so `.env` is found) and relies on the Claude CLI credentials in `~/.claude`. The crontab owner must be the same user who ran `make auth`.
+- **Overwrite:** `make cron-install` replaces the whole user crontab (after backing it up to `deploy/crontab.backup`). On a dedicated server this is fine; if the user has other cron jobs, prefer an additive `/etc/cron.d/report` fragment (note: that format requires a 6th username field and root ownership).
+- **Logs:** each job appends stdout/stderr to `logs/*.log` (cron mail is usually unconfigured). `make setup`/`make cron-render` create the `logs/` directory.
+- **Failure visibility:** `main` exits non-zero on failure, so you can alert on cron exit codes (e.g., wrap with `chronic` from `moreutils`, or add a heartbeat check).

@@ -1,4 +1,5 @@
 import argparse
+import sys
 from datetime import date, datetime
 
 from .application.ports import CLIExecutorPort, NotificationPort
@@ -124,8 +125,11 @@ def run_create_page_mode(config: AppConfig, report_date: date) -> bool:
     )
 
 
-def main():  # pragma: no cover
+def main() -> int:  # pragma: no cover
     """Composition Root: 설정 로드 → 팩토리 호출 → 실행.
+
+    성공 시 0, 실패 시 1을 반환한다 (무인 cron이 exit code로 실패를 감지하도록).
+    `if __name__` 진입점이 `sys.exit(main())`으로 종료 코드를 전파한다.
 
     모드별 조립(`build_report_use_case`, `run_create_page_mode`)과 분기 헬퍼
     (`parse_args`, `resolve_effective_settings`, `create_notifier`,
@@ -136,7 +140,7 @@ def main():  # pragma: no cover
     config = load_config_from_env(report_date=args.date)
     if config is None:
         print("Exiting due to configuration error.")
-        return
+        return 1
 
     effective_model, effective_dry_run = resolve_effective_settings(args, config)
     report_date = config.report.report_date or date.today()
@@ -147,12 +151,15 @@ def main():  # pragma: no cover
     if config.report_mode == "create_page":
         if not run_create_page_mode(config, report_date):
             print("ERROR: Failed to create weekly page.")
-        return
+            return 1
+        return 0
 
     use_case = build_report_use_case(config, effective_model, effective_dry_run)
     if not use_case.execute(config.report):
         print("ERROR: Failed to generate and send report.")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

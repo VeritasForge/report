@@ -4,6 +4,13 @@
 # MCP server config (contains API tokens)
 .mcp.json
 
+# Cron: rendered crontab (absolute paths) + backup are machine-specific; template is committed
+deploy/report.crontab
+deploy/crontab.backup
+
+# Runtime logs (cron output)
+logs/
+
 # IDE settings
 .idea/
 
